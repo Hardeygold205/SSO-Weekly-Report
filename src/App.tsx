@@ -24,7 +24,6 @@ import { formatDateTime } from './utils/formatters.ts';
 import { SAMPLE_KOBO_ROWS, SAMPLE_TARGETS } from './services/sampleData.ts';
 
 // Components
-import { PasscodeScreen } from './components/PasscodeScreen.tsx';
 import { Header } from './components/Header.tsx';
 import { FilterBar } from './components/FilterBar.tsx';
 import { UploadModal } from './components/UploadModal.tsx';
@@ -45,6 +44,11 @@ import { DataQualityTab } from './components/tabs/DataQualityTab.tsx';
 export const APPS_SCRIPT_URL =
   'https://script.google.com/macros/s/AKfycbzypVMhN2uEtnXqR-Gjs0WrvYht6Xwr4y3RDaTUkDOO7n_UMwZsz44Q9WiZ14kCGQZG/exec';
 
+// ============================================================================
+// ACCESS KEY (AUTOMATICALLY SENT WITH EVERY DATA REQUEST)
+// ============================================================================
+export const ACCESS_KEY = 'EXAF001';
+
 const TABS = [
   { id: 'overview', label: 'Overview', icon: BarChart3 },
   { id: 'progress', label: 'Progress vs Targets', icon: Target },
@@ -59,14 +63,8 @@ const TABS = [
 type TabId = typeof TABS[number]['id'];
 
 export default function App() {
-  // Passcode & Auth state
-  const [passcode, setPasscode] = useState<string>(() => {
-    return sessionStorage.getItem('ea_sso_passcode') || '';
-  });
-  const [isUnlocked, setIsUnlocked] = useState<boolean>(false);
   const [isSampleMode, setIsSampleMode] = useState<boolean>(false);
-  const [authError, setAuthError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
 
   // Raw & Cleaned Data
@@ -128,28 +126,20 @@ export default function App() {
     [targets, isUsingDefaultTargets]
   );
 
-  // Direct fetch from browser to Apps Script Web App
+  // Direct fetch from browser to Apps Script Web App sending ACCESS_KEY automatically
   const fetchDirectFromAppsScript = useCallback(
-    async (codeToUse: string, isManualRefresh = false) => {
+    async (isManualRefresh = false) => {
       const cleanUrl = APPS_SCRIPT_URL.trim();
-      const cleanPasscode = codeToUse.trim();
-
-      if (!cleanPasscode) {
-        if (!isUnlocked) {
-          setAuthError('Please enter a passcode to continue.');
-        }
-        return;
-      }
+      const cleanKey = ACCESS_KEY.trim();
 
       if (isManualRefresh) {
         setIsRefreshing(true);
       } else {
         setIsLoading(true);
       }
-      setAuthError(null);
 
       try {
-        const targetUrl = `${cleanUrl}?key=${encodeURIComponent(cleanPasscode)}${isManualRefresh ? '&refresh=1' : ''}`;
+        const targetUrl = `${cleanUrl}?key=${encodeURIComponent(cleanKey)}${isManualRefresh ? '&refresh=1' : ''}`;
         const res = await fetch(targetUrl, {
           method: 'GET',
           redirect: 'follow',
@@ -161,36 +151,38 @@ export default function App() {
         try {
           data = JSON.parse(rawText);
         } catch {
-          // If response is not valid JSON, provide clear explanation with snippet and hint
+          // If response is not valid JSON, show clear message with HTTP status, first 80 chars, and required hint
           const snippet = rawText.slice(0, 80).replace(/\s+/g, ' ');
           const detailedError = `HTTP ${res.status}: "${snippet}...". The data link returned a web page instead of data. Check that the Apps Script web app is deployed as 'Anyone' and that the URL ends in /exec.`;
-          if (!isUnlocked) {
-            setAuthError(detailedError);
-          } else {
-            setRefreshError(detailedError);
-          }
+          setRefreshError(detailedError);
           setIsLiveConnected(false);
+
+          if (cleanedRows.length === 0) {
+            setIsSampleMode(true);
+            processData(SAMPLE_KOBO_ROWS, SAMPLE_TARGETS);
+          }
           return;
         }
 
         if (!data.ok) {
-          const errText = data.error || 'Failed to fetch data';
-          if (!isUnlocked) {
-            setAuthError(errText);
-          } else {
-            setRefreshError(errText);
+          let errText = data.error || 'Failed to fetch data';
+          // If the data request returns "Wrong passcode", show required clear message
+          if (errText.toLowerCase().includes('wrong passcode')) {
+            errText = 'The dashboard access key is out of date. Contact the administrator.';
           }
+          setRefreshError(errText);
           setIsLiveConnected(false);
+
+          if (cleanedRows.length === 0) {
+            setIsSampleMode(true);
+            processData(SAMPLE_KOBO_ROWS, SAMPLE_TARGETS);
+          }
           return;
         }
 
         // Successfully received JSON data!
-        sessionStorage.setItem('ea_sso_passcode', cleanPasscode);
-        setPasscode(cleanPasscode);
-        setIsUnlocked(true);
         setIsSampleMode(false);
         setIsLiveConnected(true);
-        setAuthError(null);
         setRefreshError(null);
 
         const now = new Date().toISOString();
@@ -203,44 +195,40 @@ export default function App() {
         processData(data.rows || [], data.targets, data.targetsError);
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : 'Network error connecting to data source';
-        if (!isUnlocked) {
-          setAuthError(msg);
-        } else {
-          setRefreshError(msg);
-        }
+        setRefreshError(msg);
         setIsLiveConnected(false);
+
+        if (cleanedRows.length === 0) {
+          setIsSampleMode(true);
+          processData(SAMPLE_KOBO_ROWS, SAMPLE_TARGETS);
+        }
       } finally {
         setIsLoading(false);
         setIsRefreshing(false);
       }
     },
-    [isUnlocked, processData]
+    [cleanedRows.length, processData]
   );
 
-  // On mount, auto-fetch if passcode exists in sessionStorage
+  // On mount, immediately fetch straight to data with no login
   useEffect(() => {
-    const savedPasscode = sessionStorage.getItem('ea_sso_passcode');
-    if (savedPasscode && savedPasscode.trim()) {
-      fetchDirectFromAppsScript(savedPasscode, false);
-    }
+    fetchDirectFromAppsScript(false);
   }, [fetchDirectFromAppsScript]);
 
   // Auto-refresh every 5 minutes while page is open
   useEffect(() => {
-    if (!isUnlocked || isSampleMode || !passcode) return;
+    if (isSampleMode) return;
 
     const intervalId = setInterval(() => {
-      fetchDirectFromAppsScript(passcode, false);
+      fetchDirectFromAppsScript(false);
     }, 5 * 60 * 1000); // 5 minutes
 
     return () => clearInterval(intervalId);
-  }, [isUnlocked, isSampleMode, passcode, fetchDirectFromAppsScript]);
+  }, [isSampleMode, fetchDirectFromAppsScript]);
 
-  // Load sample data
+  // Load sample data fallback
   const handleLoadSample = () => {
     setIsSampleMode(true);
-    setIsUnlocked(true);
-    setAuthError(null);
     setRefreshError(null);
     setIsLiveConnected(false);
     const now = new Date().toISOString();
@@ -252,19 +240,15 @@ export default function App() {
     processData(SAMPLE_KOBO_ROWS, SAMPLE_TARGETS);
   };
 
-  // Exit sample mode and return to passcode entry
+  // Exit sample mode and return to live fetch
   const handleExitSample = () => {
     setIsSampleMode(false);
-    setIsUnlocked(false);
-    sessionStorage.removeItem('ea_sso_passcode');
-    setPasscode('');
-    setAuthError(null);
+    fetchDirectFromAppsScript(false);
   };
 
   // Upload handlers
   const handleKoboDataLoaded = (uploadedRows: RawKoboRow[]) => {
     setIsSampleMode(false);
-    setIsUnlocked(true);
     const now = new Date().toISOString();
     setDataUpdatedTime(now);
     setLastSuccessfulLoadTime(now);
@@ -324,30 +308,9 @@ export default function App() {
     }
   }, []);
 
-  // Passcode gate: Render PasscodeScreen if not unlocked
-  if (!isUnlocked) {
-    return (
-      <>
-        <PasscodeScreen
-          onUnlock={(code) => fetchDirectFromAppsScript(code, false)}
-          onLoadSample={handleLoadSample}
-          onOpenUpload={() => setIsUploadModalOpen(true)}
-          isLoading={isLoading}
-          errorMessage={authError}
-        />
-        <UploadModal
-          isOpen={isUploadModalOpen}
-          onClose={() => setIsUploadModalOpen(false)}
-          onKoboDataLoaded={handleKoboDataLoaded}
-          onTargetsLoaded={handleTargetsLoaded}
-        />
-      </>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-[#F4F7F5] text-slate-800 flex flex-col font-sans">
-      {/* 1. Branded Header */}
+      {/* 1. Branded Header (No Passcode Screen, No Lock Button) */}
       <Header
         dataUpdatedTime={dataUpdatedTime}
         targetsUpdatedTime={targetsUpdatedTime}
@@ -356,7 +319,7 @@ export default function App() {
         isSampleMode={isSampleMode}
         refreshError={refreshError}
         targetsWarning={targetsWarning}
-        onRefreshNow={() => fetchDirectFromAppsScript(passcode, true)}
+        onRefreshNow={() => fetchDirectFromAppsScript(true)}
         onOpenUpload={() => setIsUploadModalOpen(true)}
         onExitSample={handleExitSample}
       />
@@ -398,8 +361,14 @@ export default function App() {
           </div>
         </div>
 
-        {/* Empty state check */}
-        {cleanedRows.length === 0 ? (
+        {/* Loading state on initial load */}
+        {isLoading && cleanedRows.length === 0 ? (
+          <div className="bg-white rounded-xl border border-slate-200 p-12 text-center shadow-xs">
+            <div className="w-12 h-12 border-3 border-[#1F6B3A]/20 border-t-[#1F6B3A] rounded-full animate-spin mx-auto mb-4" />
+            <h3 className="text-base font-bold text-slate-900">Connecting to SSO Performance Tracker...</h3>
+            <p className="text-xs text-slate-500 mt-1">Fetching weekly Kobo submissions and targets from Google Apps Script</p>
+          </div>
+        ) : cleanedRows.length === 0 ? (
           <div className="bg-white rounded-xl border border-slate-200 p-12 text-center shadow-xs">
             <div className="w-16 h-16 rounded-full bg-emerald-50 text-[#1F6B3A] mx-auto flex items-center justify-center mb-4">
               <RotateCcw className="w-8 h-8" />
@@ -411,7 +380,7 @@ export default function App() {
             </p>
             <div className="mt-6 flex flex-wrap justify-center gap-3">
               <button
-                onClick={() => fetchDirectFromAppsScript(passcode, true)}
+                onClick={() => fetchDirectFromAppsScript(true)}
                 className="px-4 py-2 bg-[#1F6B3A] text-white text-xs font-semibold rounded-lg hover:bg-[#18532D] transition-colors"
               >
                 Refresh Now
