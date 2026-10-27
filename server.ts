@@ -39,14 +39,24 @@ function resolveAppsScriptUrl(): string {
   return DEFAULT_APPS_SCRIPT_URL;
 }
 
+function resolvePasscode(providedKey?: string): string {
+  if (providedKey && providedKey.trim()) {
+    return providedKey.trim();
+  }
+  if (process.env.APPS_SCRIPT_PASSCODE) return process.env.APPS_SCRIPT_PASSCODE.trim();
+  if (process.env.APPS_SCRIPT_KEY) return process.env.APPS_SCRIPT_KEY.trim();
+  if (process.env.PASSCODE) return process.env.PASSCODE.trim();
+  if (process.env.APPS_SCRIPT_URL && !process.env.APPS_SCRIPT_URL.startsWith('http')) {
+    return process.env.APPS_SCRIPT_URL.trim();
+  }
+  return 'EXAF001';
+}
+
 // Proxy endpoint for Kobo + Targets data from Google Apps Script Web App
 app.get('/api/data', async (req, res) => {
-  const key = req.query.key as string;
+  const queryKey = req.query.key as string;
   const refresh = req.query.refresh as string;
-
-  if (!key) {
-    return res.status(400).json({ ok: false, error: 'Passcode is required' });
-  }
+  const key = resolvePasscode(queryKey);
 
   const scriptUrl = resolveAppsScriptUrl();
 

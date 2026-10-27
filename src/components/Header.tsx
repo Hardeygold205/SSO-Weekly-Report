@@ -20,7 +20,6 @@ interface HeaderProps {
   targetsWarning: string | null;
   onRefreshNow: () => void;
   onOpenUpload: () => void;
-  onLock: () => void;
   onExitSample: () => void;
 }
 
@@ -34,13 +33,8 @@ export const Header: React.FC<HeaderProps> = ({
   targetsWarning,
   onRefreshNow,
   onOpenUpload,
-  onLock,
   onExitSample,
 }) => {
-  const handlePrint = () => {
-    window.print();
-  };
-
   return (
     <header className="sticky top-0 z-40 bg-[#1F6B3A] text-white shadow-md print:static print:bg-white print:text-black">
       {/* Sample data banner */}
@@ -52,7 +46,7 @@ export const Header: React.FC<HeaderProps> = ({
             onClick={onExitSample}
             className="ml-3 px-2 py-0.5 bg-black/20 hover:bg-black/30 text-slate-900 rounded text-[11px] font-semibold transition-colors"
           >
-            Switch to Live Key
+            Switch to Live Data
           </button>
         </div>
       )}
@@ -68,8 +62,6 @@ export const Header: React.FC<HeaderProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <span className="text-xs uppercase tracking-widest text-emerald-200 font-semibold">Extension Africa</span>
-                <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-                <span className="text-xs text-emerald-100 font-medium">Nigeria Operations</span>
               </div>
               <h1 className="text-lg sm:text-xl font-bold tracking-tight text-white flex items-center gap-2">
                 SSO Weekly Performance Tracker
@@ -126,26 +118,6 @@ export const Header: React.FC<HeaderProps> = ({
             >
               <Upload className="w-3.5 h-3.5 text-amber-300" />
               <span className="hidden sm:inline">Upload</span>
-            </button>
-
-            {/* Print / Save as PDF */}
-            <button
-              onClick={handlePrint}
-              className="px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded-lg font-medium text-white transition-colors flex items-center gap-1.5 border border-white/10"
-              title="Print or Save dashboard view as PDF"
-            >
-              <Printer className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Print / PDF</span>
-            </button>
-
-            {/* Lock Button */}
-            <button
-              onClick={onLock}
-              className="px-3 py-1.5 bg-rose-950/40 hover:bg-rose-900/60 text-rose-200 rounded-lg font-medium transition-colors flex items-center gap-1.5 border border-rose-800/40"
-              title="Clear session key and lock dashboard"
-            >
-              <Lock className="w-3.5 h-3.5" />
-              <span>Lock</span>
             </button>
           </div>
         </div>
