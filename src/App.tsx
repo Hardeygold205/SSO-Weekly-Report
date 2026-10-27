@@ -132,6 +132,12 @@ export default function App() {
           const errText = data.error || 'Failed to fetch live data.';
           setRefreshError(errText);
           setIsLiveConnected(false);
+
+          // If no rows are loaded yet, load baseline demo data with clear alert
+          if (cleanedRows.length === 0) {
+            setIsSampleMode(true);
+            processData(SAMPLE_KOBO_ROWS, SAMPLE_TARGETS);
+          }
           return;
         }
 
@@ -151,12 +157,17 @@ export default function App() {
         const msg = err instanceof Error ? err.message : 'Failed to fetch data';
         setRefreshError(msg);
         setIsLiveConnected(false);
+
+        if (cleanedRows.length === 0) {
+          setIsSampleMode(true);
+          processData(SAMPLE_KOBO_ROWS, SAMPLE_TARGETS);
+        }
       } finally {
         setIsLoading(false);
         setIsRefreshing(false);
       }
     },
-    [processData]
+    [cleanedRows.length, processData]
   );
 
   // Fetch live data immediately on mount

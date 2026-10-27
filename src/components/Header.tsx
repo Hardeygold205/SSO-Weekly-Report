@@ -128,18 +128,31 @@ export const Header: React.FC<HeaderProps> = ({
 
       {/* Warnings & Notices Bar */}
       {(refreshError || targetsWarning) && (
-        <div className="bg-amber-900/90 text-amber-100 px-4 py-2 text-xs border-b border-amber-800 flex flex-wrap items-center justify-between gap-2 print:hidden">
+        <div className="bg-amber-900 text-amber-100 px-4 py-2 text-xs border-b border-amber-800 flex flex-wrap items-center justify-between gap-2 print:hidden">
           <div className="flex items-center gap-2">
             <AlertTriangle className="w-4 h-4 text-amber-300 shrink-0" />
             <span>
-              {refreshError
-                ? `Sync Alert: ${refreshError}. Displaying last known valid data.`
-                : targetsWarning}
+              {refreshError?.includes('DASHBOARD_PASSCODE') ? (
+                <>
+                  <strong className="text-amber-200">Google Apps Script Configuration:</strong> The remote script returned{' '}
+                  <code className="bg-amber-950 px-1 py-0.5 rounded text-amber-300 font-mono">
+                    Missing Script Property: DASHBOARD_PASSCODE
+                  </code>
+                  . In your Google Apps Script project, open <strong>Project Settings (⚙️)</strong> →{' '}
+                  <strong>Script Properties</strong> → add Property{' '}
+                  <code className="bg-amber-950 px-1 py-0.5 rounded text-amber-300 font-mono">DASHBOARD_PASSCODE</code>{' '}
+                  with value <code className="bg-amber-950 px-1 py-0.5 rounded text-amber-300 font-mono">EXAF001</code>.
+                </>
+              ) : refreshError ? (
+                `Sync Alert: ${refreshError}. Displaying last known valid data.`
+              ) : (
+                targetsWarning
+              )}
             </span>
           </div>
           {dataUpdatedTime && (
-            <span className="text-amber-300 font-mono text-[11px]">
-              Last good sync: {formatDateTime(dataUpdatedTime)}
+            <span className="text-amber-300 font-mono text-[11px] shrink-0">
+              Last sync: {formatDateTime(dataUpdatedTime)}
             </span>
           )}
         </div>
