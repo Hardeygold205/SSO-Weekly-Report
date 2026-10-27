@@ -1,0 +1,6 @@
+{
+  "name": "SSO Weekly Performance Tracker",
+  "description": "Weekly performance tracking dashboard for Extension Africa State Sales Officers in Nigeria against strategic targets, powered by live KoboToolbox data.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
