@@ -20,9 +20,11 @@ import {
 } from './types/index.ts';
 import { DEFAULT_TARGETS } from './constants/index.ts';
 import { cleanKoboRows, auditTargets } from './utils/cleaner.ts';
+import { formatDateTime } from './utils/formatters.ts';
 import { SAMPLE_KOBO_ROWS, SAMPLE_TARGETS } from './services/sampleData.ts';
 
 // Components
+import { PasscodeScreen } from './components/PasscodeScreen.tsx';
 import { Header } from './components/Header.tsx';
 import { FilterBar } from './components/FilterBar.tsx';
 import { UploadModal } from './components/UploadModal.tsx';
@@ -36,6 +38,12 @@ import { RevenueTab } from './components/tabs/RevenueTab.tsx';
 import { DisciplineTab } from './components/tabs/DisciplineTab.tsx';
 import { ProjectsChallengesTab } from './components/tabs/ProjectsChallengesTab.tsx';
 import { DataQualityTab } from './components/tabs/DataQualityTab.tsx';
+
+// ============================================================================
+// APPS SCRIPT WEB APP DATA SOURCE (DIRECT BROWSER FETCH)
+// ============================================================================
+export const APPS_SCRIPT_URL =
+  'https://script.google.com/macros/s/AKfycbzypVMhN2uEtnXqR-Gjs0WrvYht6Xwr4y3RDaTUkDOO7n_UMwZsz44Q9WiZ14kCGQZG/exec';
 
 const TABS = [
   { id: 'overview', label: 'Overview', icon: BarChart3 },
@@ -51,8 +59,14 @@ const TABS = [
 type TabId = typeof TABS[number]['id'];
 
 export default function App() {
+  // Passcode & Auth state
+  const [passcode, setPasscode] = useState<string>(() => {
+    return sessionStorage.getItem('ea_sso_passcode') || '';
+  });
+  const [isUnlocked, setIsUnlocked] = useState<boolean>(false);
   const [isSampleMode, setIsSampleMode] = useState<boolean>(false);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
 
   // Raw & Cleaned Data
@@ -64,6 +78,7 @@ export default function App() {
   // Status & Metadata
   const [dataUpdatedTime, setDataUpdatedTime] = useState<string>('');
   const [targetsUpdatedTime, setTargetsUpdatedTime] = useState<string>('');
+  const [lastSuccessfulLoadTime, setLastSuccessfulLoadTime] = useState<string>('');
   const [isLiveConnected, setIsLiveConnected] = useState<boolean>(false);
   const [refreshError, setRefreshError] = useState<string | null>(null);
   const [targetsWarning, setTargetsWarning] = useState<string | null>(null);
@@ -113,101 +128,146 @@ export default function App() {
     [targets, isUsingDefaultTargets]
   );
 
-  // Fetch data from /api/data endpoint directly without requiring user passcode entry
-  const fetchData = useCallback(
-    async (isManualRefresh = false) => {
+  // Direct fetch from browser to Apps Script Web App
+  const fetchDirectFromAppsScript = useCallback(
+    async (codeToUse: string, isManualRefresh = false) => {
+      const cleanUrl = APPS_SCRIPT_URL.trim();
+      const cleanPasscode = codeToUse.trim();
+
+      if (!cleanPasscode) {
+        if (!isUnlocked) {
+          setAuthError('Please enter a passcode to continue.');
+        }
+        return;
+      }
+
       if (isManualRefresh) {
         setIsRefreshing(true);
       } else {
         setIsLoading(true);
       }
-      setRefreshError(null);
+      setAuthError(null);
 
       try {
-        const refreshParam = isManualRefresh ? '?refresh=1' : '';
-        const res = await fetch(`/api/data${refreshParam}`);
-        const data: ApiResponse = await res.json();
+        const targetUrl = `${cleanUrl}?key=${encodeURIComponent(cleanPasscode)}${isManualRefresh ? '&refresh=1' : ''}`;
+        const res = await fetch(targetUrl, {
+          method: 'GET',
+          redirect: 'follow',
+        });
 
-        if (!data.ok) {
-          const errText = data.error || 'Failed to fetch live data.';
-          setRefreshError(errText);
-          setIsLiveConnected(false);
+        const rawText = await res.text();
+        let data: ApiResponse;
 
-          // If no rows are loaded yet, load baseline demo data with clear alert
-          if (cleanedRows.length === 0) {
-            setIsSampleMode(true);
-            processData(SAMPLE_KOBO_ROWS, SAMPLE_TARGETS);
+        try {
+          data = JSON.parse(rawText);
+        } catch {
+          // If response is not valid JSON, provide clear explanation with snippet and hint
+          const snippet = rawText.slice(0, 80).replace(/\s+/g, ' ');
+          const detailedError = `HTTP ${res.status}: "${snippet}...". The data link returned a web page instead of data. Check that the Apps Script web app is deployed as 'Anyone' and that the URL ends in /exec.`;
+          if (!isUnlocked) {
+            setAuthError(detailedError);
+          } else {
+            setRefreshError(detailedError);
           }
+          setIsLiveConnected(false);
           return;
         }
 
-        // Successfully received live data
+        if (!data.ok) {
+          const errText = data.error || 'Failed to fetch data';
+          if (!isUnlocked) {
+            setAuthError(errText);
+          } else {
+            setRefreshError(errText);
+          }
+          setIsLiveConnected(false);
+          return;
+        }
+
+        // Successfully received JSON data!
+        sessionStorage.setItem('ea_sso_passcode', cleanPasscode);
+        setPasscode(cleanPasscode);
+        setIsUnlocked(true);
         setIsSampleMode(false);
         setIsLiveConnected(true);
+        setAuthError(null);
         setRefreshError(null);
 
         const now = new Date().toISOString();
         setDataUpdatedTime(data.updated || now);
+        setLastSuccessfulLoadTime(now);
         if (data.targetsUpdated) {
           setTargetsUpdatedTime(data.targetsUpdated);
         }
 
         processData(data.rows || [], data.targets, data.targetsError);
       } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : 'Failed to fetch data';
-        setRefreshError(msg);
-        setIsLiveConnected(false);
-
-        if (cleanedRows.length === 0) {
-          setIsSampleMode(true);
-          processData(SAMPLE_KOBO_ROWS, SAMPLE_TARGETS);
+        const msg = err instanceof Error ? err.message : 'Network error connecting to data source';
+        if (!isUnlocked) {
+          setAuthError(msg);
+        } else {
+          setRefreshError(msg);
         }
+        setIsLiveConnected(false);
       } finally {
         setIsLoading(false);
         setIsRefreshing(false);
       }
     },
-    [cleanedRows.length, processData]
+    [isUnlocked, processData]
   );
 
-  // Fetch live data immediately on mount
+  // On mount, auto-fetch if passcode exists in sessionStorage
   useEffect(() => {
-    fetchData(false);
-  }, [fetchData]);
+    const savedPasscode = sessionStorage.getItem('ea_sso_passcode');
+    if (savedPasscode && savedPasscode.trim()) {
+      fetchDirectFromAppsScript(savedPasscode, false);
+    }
+  }, [fetchDirectFromAppsScript]);
 
   // Auto-refresh every 5 minutes while page is open
   useEffect(() => {
-    if (isSampleMode) return;
+    if (!isUnlocked || isSampleMode || !passcode) return;
 
     const intervalId = setInterval(() => {
-      fetchData(true);
+      fetchDirectFromAppsScript(passcode, false);
     }, 5 * 60 * 1000); // 5 minutes
 
     return () => clearInterval(intervalId);
-  }, [isSampleMode, fetchData]);
+  }, [isUnlocked, isSampleMode, passcode, fetchDirectFromAppsScript]);
 
   // Load sample data
   const handleLoadSample = () => {
     setIsSampleMode(true);
+    setIsUnlocked(true);
+    setAuthError(null);
     setRefreshError(null);
     setIsLiveConnected(false);
-    setDataUpdatedTime(new Date().toISOString());
-    setTargetsUpdatedTime(new Date().toISOString());
+    const now = new Date().toISOString();
+    setDataUpdatedTime(now);
+    setTargetsUpdatedTime(now);
+    setLastSuccessfulLoadTime(now);
     setTargets(SAMPLE_TARGETS);
     setIsUsingDefaultTargets(true);
     processData(SAMPLE_KOBO_ROWS, SAMPLE_TARGETS);
   };
 
-  // Exit sample mode and return to live data
+  // Exit sample mode and return to passcode entry
   const handleExitSample = () => {
     setIsSampleMode(false);
-    fetchData(false);
+    setIsUnlocked(false);
+    sessionStorage.removeItem('ea_sso_passcode');
+    setPasscode('');
+    setAuthError(null);
   };
 
   // Upload handlers
   const handleKoboDataLoaded = (uploadedRows: RawKoboRow[]) => {
     setIsSampleMode(false);
-    setDataUpdatedTime(new Date().toISOString());
+    setIsUnlocked(true);
+    const now = new Date().toISOString();
+    setDataUpdatedTime(now);
+    setLastSuccessfulLoadTime(now);
     processData(uploadedRows);
   };
 
@@ -255,9 +315,39 @@ export default function App() {
     }));
   };
 
+  // Parsed host for Connection details
+  const appsScriptHost = useMemo(() => {
+    try {
+      return new URL(APPS_SCRIPT_URL.trim()).host;
+    } catch {
+      return 'script.google.com';
+    }
+  }, []);
+
+  // Passcode gate: Render PasscodeScreen if not unlocked
+  if (!isUnlocked) {
+    return (
+      <>
+        <PasscodeScreen
+          onUnlock={(code) => fetchDirectFromAppsScript(code, false)}
+          onLoadSample={handleLoadSample}
+          onOpenUpload={() => setIsUploadModalOpen(true)}
+          isLoading={isLoading}
+          errorMessage={authError}
+        />
+        <UploadModal
+          isOpen={isUploadModalOpen}
+          onClose={() => setIsUploadModalOpen(false)}
+          onKoboDataLoaded={handleKoboDataLoaded}
+          onTargetsLoaded={handleTargetsLoaded}
+        />
+      </>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#F4F7F5] text-slate-800 flex flex-col font-sans">
-      {/* 1. Branded Header (Passcode, Print, and Lock removed) */}
+      {/* 1. Branded Header */}
       <Header
         dataUpdatedTime={dataUpdatedTime}
         targetsUpdatedTime={targetsUpdatedTime}
@@ -266,7 +356,7 @@ export default function App() {
         isSampleMode={isSampleMode}
         refreshError={refreshError}
         targetsWarning={targetsWarning}
-        onRefreshNow={() => fetchData(true)}
+        onRefreshNow={() => fetchDirectFromAppsScript(passcode, true)}
         onOpenUpload={() => setIsUploadModalOpen(true)}
         onExitSample={handleExitSample}
       />
@@ -308,14 +398,8 @@ export default function App() {
           </div>
         </div>
 
-        {/* Loading state on initial load */}
-        {isLoading && cleanedRows.length === 0 ? (
-          <div className="bg-white rounded-xl border border-slate-200 p-12 text-center shadow-xs">
-            <div className="w-12 h-12 border-3 border-[#1F6B3A]/20 border-t-[#1F6B3A] rounded-full animate-spin mx-auto mb-4" />
-            <h3 className="text-base font-bold text-slate-900">Loading SSO Weekly Performance Data...</h3>
-            <p className="text-xs text-slate-500 mt-1">Connecting to live KoboToolbox submissions and Google Sheet targets</p>
-          </div>
-        ) : cleanedRows.length === 0 ? (
+        {/* Empty state check */}
+        {cleanedRows.length === 0 ? (
           <div className="bg-white rounded-xl border border-slate-200 p-12 text-center shadow-xs">
             <div className="w-16 h-16 rounded-full bg-emerald-50 text-[#1F6B3A] mx-auto flex items-center justify-center mb-4">
               <RotateCcw className="w-8 h-8" />
@@ -327,7 +411,7 @@ export default function App() {
             </p>
             <div className="mt-6 flex flex-wrap justify-center gap-3">
               <button
-                onClick={() => fetchData(true)}
+                onClick={() => fetchDirectFromAppsScript(passcode, true)}
                 className="px-4 py-2 bg-[#1F6B3A] text-white text-xs font-semibold rounded-lg hover:bg-[#18532D] transition-colors"
               >
                 Refresh Now
@@ -404,20 +488,26 @@ export default function App() {
         )}
       </main>
 
-      {/* 4. Footer */}
+      {/* 4. Footer with Connection Details */}
       <footer className="mt-auto border-t border-slate-200 bg-white py-4 text-xs text-slate-500 print:hidden">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-2">
             <span className="font-bold text-slate-700">Extension Africa</span>
             <span>·</span>
             <span>SSO Weekly Performance Tracker</span>
-            <span>·</span>
-            <span className="font-mono text-[11px] text-slate-400">Projector & Management Mode</span>
           </div>
-          <div className="flex items-center gap-4 text-[11px] text-slate-400 font-mono">
-            <span>Form Cutoff: Thursday / Friday</span>
+
+          {/* Connection details line */}
+          <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-500 font-mono">
+            <span>Connection details:</span>
+            <span className="font-semibold text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded">{appsScriptHost}</span>
             <span>·</span>
-            <span>Currency: NGN (₦)</span>
+            <span>
+              Last successful load:{' '}
+              <strong className="text-slate-700">
+                {lastSuccessfulLoadTime ? formatDateTime(lastSuccessfulLoadTime) : 'Not loaded yet'}
+              </strong>
+            </span>
           </div>
         </div>
       </footer>
