@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   ResponsiveContainer,
   BarChart,
@@ -22,8 +22,17 @@ interface PipelineTabProps {
 }
 
 export const PipelineTab: React.FC<PipelineTabProps> = ({ rows }) => {
+  // Determine active states matching the active filter selection
+  const activeStates = useMemo(() => {
+    const statesInRows = Array.from(new Set(rows.map((r) => r.state))).filter(Boolean);
+    if (statesInRows.length > 0 && statesInRows.length < STATES.length) {
+      return STATES.filter((s) => statesInRows.includes(s));
+    }
+    return STATES;
+  }, [rows]);
+
   // 1. Aggregation by State
-  const pipelineByState = STATES.map((state) => {
+  const pipelineByState = activeStates.map((state) => {
     const stateRows = rows.filter((r) => r.state === state);
     const n_agent_id = stateRows.reduce((sum, r) => sum + r.n_agent_id, 0);
     const agent_val = stateRows.reduce((sum, r) => sum + r.agent_val, 0);

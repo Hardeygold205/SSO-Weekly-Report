@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   FileText,
   Clock,
@@ -23,6 +23,7 @@ interface OverviewTabProps {
   selectedWeek: string;
   selectedMonth: string;
   selectedState: string;
+  selectedOfficer?: string;
 }
 
 export const OverviewTab: React.FC<OverviewTabProps> = ({
@@ -31,11 +32,13 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   selectedWeek,
   selectedMonth,
   selectedState,
+  selectedOfficer,
 }) => {
   // 1. KPI Calculations
   const distinctWeeks = Array.from(new Set(rows.map((r) => r.week_start))).filter(Boolean);
   const numberOfWeeks = distinctWeeks.length || 1;
-  const expectedOfficerCount = selectedState === 'all' ? 7 : 1;
+  const isSingleOfficer = (selectedOfficer && selectedOfficer !== 'all') || selectedState !== 'all';
+  const expectedOfficerCount = isSingleOfficer ? 1 : 7;
   const expectedReports = expectedOfficerCount * numberOfWeeks;
   const reportsReceived = rows.length;
   const reportingRate = expectedReports > 0 ? (reportsReceived / expectedReports) * 100 : 0;
@@ -50,6 +53,16 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   const trainSessions = rows.reduce((sum, r) => sum + r.train_sess, 0);
   const coopTrainSessions = rows.reduce((sum, r) => sum + r.coop_train, 0);
   const totalRevenue = rows.reduce((sum, r) => sum + r.rev, 0);
+
+  // Active states reflecting selected filters
+  const activeStates = useMemo(() => {
+    if (selectedState !== 'all') return [selectedState];
+    const inRows = Array.from(new Set(rows.map((r) => r.state))).filter(Boolean);
+    if (inRows.length > 0 && inRows.length < STATES.length) {
+      return STATES.filter((s) => inRows.includes(s));
+    }
+    return STATES;
+  }, [selectedState, rows]);
 
   // Key insights generated deterministically
   const insights = generateKeyInsights(rows, targets, selectedWeek);
@@ -160,7 +173,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
               {formatNumber(facEstablished)}
             </div>
             <div className="mt-2 text-xs text-slate-500">
-              Farm Access Centers established
+              Farmers Aggregation Centers established
             </div>
           </div>
         </div>
@@ -227,15 +240,17 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
         </div>
       </div>
 
-      {/* Quick State Leaderboard Breakdown */}
+      {/* Quick State Leaderboard Breakdown (Respects Selected Filters) */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Revenue by State ranking */}
         <div className="bg-white rounded-xl border border-slate-200 shadow-xs p-5">
-          <h4 className="font-bold text-slate-900 text-sm mb-3">Top States by Revenue</h4>
+          <h4 className="font-bold text-slate-900 text-sm mb-3">
+            {activeStates.length === 1 ? `${activeStates[0]} Revenue Performance` : 'State Revenue Performance'}
+          </h4>
           <div className="space-y-2.5">
-            {STATES.map((state) => {
+            {activeStates.map((state) => {
               const stateRev = rows.filter((r) => r.state === state).reduce((sum, r) => sum + r.rev, 0);
-              const maxRev = Math.max(...STATES.map((s) => rows.filter((r) => r.state === s).reduce((sum, r) => sum + r.rev, 0)), 1);
+              const maxRev = Math.max(...activeStates.map((s) => rows.filter((r) => r.state === s).reduce((sum, r) => sum + r.rev, 0)), 1);
               const widthPct = Math.round((stateRev / maxRev) * 100);
 
               return (
@@ -258,11 +273,13 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
 
         {/* Agent Validation ranking */}
         <div className="bg-white rounded-xl border border-slate-200 shadow-xs p-5">
-          <h4 className="font-bold text-slate-900 text-sm mb-3">Top States by Agent Validation</h4>
+          <h4 className="font-bold text-slate-900 text-sm mb-3">
+            {activeStates.length === 1 ? `${activeStates[0]} Agent Validation` : 'State Agent Validation'}
+          </h4>
           <div className="space-y-2.5">
-            {STATES.map((state) => {
+            {activeStates.map((state) => {
               const stateVal = rows.filter((r) => r.state === state).reduce((sum, r) => sum + r.agent_val, 0);
-              const maxVal = Math.max(...STATES.map((s) => rows.filter((r) => r.state === s).reduce((sum, r) => sum + r.agent_val, 0)), 1);
+              const maxVal = Math.max(...activeStates.map((s) => rows.filter((r) => r.state === s).reduce((sum, r) => sum + r.agent_val, 0)), 1);
               const widthPct = Math.round((stateVal / maxVal) * 100);
 
               return (

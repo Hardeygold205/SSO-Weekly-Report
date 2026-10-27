@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   ResponsiveContainer,
   BarChart,
@@ -20,6 +20,26 @@ interface DisciplineTabProps {
 }
 
 export const DisciplineTab: React.FC<DisciplineTabProps> = ({ rows }) => {
+  // Derive active officers matching the active filter selection
+  const activeOfficers = useMemo(() => {
+    const officersInRows = Array.from(
+      new Set(
+        rows
+          .map((r) => r.sso_code?.toLowerCase())
+          .concat(rows.map((r) => r.sso_name?.toLowerCase()))
+      )
+    ).filter(Boolean);
+
+    if (officersInRows.length > 0 && officersInRows.length < OFFICERS.length) {
+      return OFFICERS.filter(
+        (o) =>
+          officersInRows.includes(o.code.toLowerCase()) ||
+          officersInRows.includes(o.name.toLowerCase())
+      );
+    }
+    return OFFICERS;
+  }, [rows]);
+
   // 1. Overall Metrics
   const totalReports = rows.length;
   const onTimeReports = rows.filter((r) => r.submission_status === 'On time');
@@ -47,8 +67,8 @@ export const DisciplineTab: React.FC<DisciplineTabProps> = ({ rows }) => {
     };
   });
 
-  // 3. Discipline by Officer
-  const officerDiscipline = OFFICERS.map((officer) => {
+  // 3. Discipline by Officer (scoped to active officers)
+  const officerDiscipline = activeOfficers.map((officer) => {
     const officerRows = rows.filter(
       (r) => r.sso_code === officer.code || r.sso_name.toLowerCase() === officer.name.toLowerCase()
     );
@@ -203,7 +223,7 @@ export const DisciplineTab: React.FC<DisciplineTabProps> = ({ rows }) => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {OFFICERS.map((officer) => (
+              {activeOfficers.map((officer) => (
                 <tr key={officer.code} className="hover:bg-slate-50/70 transition-colors">
                   <td className="px-4 py-3 font-bold text-slate-900 sticky left-0 bg-white z-10 shadow-xs">
                     {officer.name}

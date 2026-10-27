@@ -280,7 +280,12 @@ export default function App() {
       if (filters.month !== 'all' && r.month !== filters.month) return false;
       if (filters.week !== 'all' && r.week_start !== filters.week) return false;
       if (filters.state !== 'all' && r.state.toLowerCase() !== filters.state.toLowerCase()) return false;
-      if (filters.officer !== 'all' && r.sso_name.toLowerCase() !== filters.officer.toLowerCase()) return false;
+      if (filters.officer !== 'all') {
+        const officerLower = filters.officer.toLowerCase();
+        const matchName = r.sso_name.toLowerCase() === officerLower;
+        const matchCode = r.sso_code.toLowerCase() === officerLower;
+        if (!matchName && !matchCode) return false;
+      }
       return true;
     });
   }, [cleanedRows, filters]);
@@ -409,6 +414,7 @@ export default function App() {
                 selectedWeek={filters.week}
                 selectedMonth={filters.month}
                 selectedState={filters.state}
+                selectedOfficer={filters.officer}
               />
             )}
 

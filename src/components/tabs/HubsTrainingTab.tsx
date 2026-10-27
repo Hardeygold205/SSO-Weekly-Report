@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   ResponsiveContainer,
   BarChart,
@@ -21,8 +21,17 @@ interface HubsTrainingTabProps {
 }
 
 export const HubsTrainingTab: React.FC<HubsTrainingTabProps> = ({ rows, targets }) => {
+  // Determine active states matching the active filter selection
+  const activeStates = useMemo(() => {
+    const statesInRows = Array.from(new Set(rows.map((r) => r.state))).filter(Boolean);
+    if (statesInRows.length > 0 && statesInRows.length < STATES.length) {
+      return STATES.filter((s) => statesInRows.includes(s));
+    }
+    return STATES;
+  }, [rows]);
+
   // 1. Data by State for Hubs
-  const stateHubData = STATES.map((state) => {
+  const stateHubData = activeStates.map((state) => {
     const officer = OFFICERS.find((o) => o.state === state);
     const stateRows = rows.filter((r) => r.state === state);
     const sorted = [...stateRows].sort((a, b) => a.week_start.localeCompare(b.week_start));
@@ -55,7 +64,7 @@ export const HubsTrainingTab: React.FC<HubsTrainingTabProps> = ({ rows, targets 
     const weekRows = rows.filter((r) => r.week_start === week);
     const trainSessions = weekRows.reduce((sum, r) => sum + r.train_sess, 0);
     const coopTrainings = weekRows.reduce((sum, r) => sum + r.coop_train, 0);
-    const zeroTrainingStates = STATES.filter((state) => {
+    const zeroTrainingStates = activeStates.filter((state) => {
       const rep = weekRows.find((r) => r.state === state);
       return !rep || (rep.train_sess === 0 && rep.coop_train === 0);
     });
@@ -75,12 +84,14 @@ export const HubsTrainingTab: React.FC<HubsTrainingTabProps> = ({ rows, targets 
 
   return (
     <div className="space-y-8">
-      {/* Section 1: 7 State Hub Tiles */}
+      {/* Section 1: State Hub Tiles */}
       <div>
         <div className="mb-4">
-          <h3 className="text-base font-bold text-slate-900">1. State Operational Hubs & Infrastructure (7 States)</h3>
+          <h3 className="text-base font-bold text-slate-900">
+            1. State Operational Hubs & Infrastructure ({activeStates.length === 1 ? activeStates[0] : `${activeStates.length} States`})
+          </h3>
           <p className="text-xs text-slate-500">
-            Latest operational status of Farmer Community Hubs (FCH) and Farm Access Centers (FAC)
+            Latest operational status of Farmer Community Hubs (FCH) and Farmers Aggregation Centers (FAC)
           </p>
         </div>
 

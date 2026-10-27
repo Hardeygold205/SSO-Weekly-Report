@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { CleanedReportRow, TargetItem } from '../../types/index.ts';
 import { STATES } from '../../constants/index.ts';
 import { formatNaira, formatNumber, formatPercent, getPercentStatusClass } from '../../utils/formatters.ts';
@@ -15,6 +15,15 @@ export const ProgressTab: React.FC<ProgressTabProps> = ({
   targets,
   showTargets,
 }) => {
+  // Determine active states matching the active filter selection
+  const activeStates = useMemo(() => {
+    const statesInRows = Array.from(new Set(rows.map((r) => r.state))).filter(Boolean);
+    if (statesInRows.length > 0 && statesInRows.length < STATES.length) {
+      return STATES.filter((s) => statesInRows.includes(s));
+    }
+    return STATES;
+  }, [rows]);
+
   // Helper for KPI metric progress by state
   const getStateMetrics = (state: string) => {
     const stateRows = rows.filter((r) => r.state === state);
@@ -50,7 +59,7 @@ export const ProgressTab: React.FC<ProgressTabProps> = ({
     };
   };
 
-  const stateMetricRows = STATES.map(getStateMetrics);
+  const stateMetricRows = activeStates.map(getStateMetrics);
 
   // Totals for Table 1
   const totalAgentsTarget = stateMetricRows.reduce((s, r) => s + (r.agents.target || 0), 0);
@@ -93,7 +102,7 @@ export const ProgressTab: React.FC<ProgressTabProps> = ({
     return { target, actual: revActual, pct };
   };
 
-  const stateRevenueRows = STATES.map((state) => {
+  const stateRevenueRows = activeStates.map((state) => {
     const oct = getRevenueForStateMonth(state, 'October');
     const nov = getRevenueForStateMonth(state, 'November');
     const dec = getRevenueForStateMonth(state, 'December');
@@ -232,7 +241,7 @@ export const ProgressTab: React.FC<ProgressTabProps> = ({
                 <th colSpan={showTargets ? 3 : 2} className="px-3 py-2 text-center border-l border-slate-200 bg-emerald-50/50 text-[#1F6B3A]">
                   FCHs Operational
                 </th>
-                <th colSpan={showTargets ? 3 : 2} className="px-3 py-2 text-center border-l border-slate-200 bg-emerald-50/50 text-[#1F6B3A]">
+                <th colSpan={showTargets ? 3 : 2} className="px-3 py-2 text-center border-l border-slate-200 bg-emerald-50/50 text-[#1F6B3A]" title="Farmers Aggregation Centers Established">
                   FACs Established
                 </th>
                 <th colSpan={showTargets ? 3 : 2} className="px-3 py-2 text-center border-l border-slate-200 bg-emerald-50/50 text-[#1F6B3A]">

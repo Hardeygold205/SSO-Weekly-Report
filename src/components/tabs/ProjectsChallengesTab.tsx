@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   ResponsiveContainer,
   BarChart,
@@ -32,10 +32,19 @@ interface ProjectStateRow {
 }
 
 export const ProjectsChallengesTab: React.FC<ProjectsChallengesTabProps> = ({ rows }) => {
+  // Determine active states matching the active filter selection
+  const activeStates = useMemo(() => {
+    const statesInRows = Array.from(new Set(rows.map((r) => r.state))).filter(Boolean);
+    if (statesInRows.length > 0 && statesInRows.length < STATES.length) {
+      return STATES.filter((s) => statesInRows.includes(s));
+    }
+    return STATES;
+  }, [rows]);
+
   // 1. Projects Breakdown by Project and State
   const projectKeys = Object.keys(PROJECT_LABELS);
 
-  const projectsByState: ProjectStateRow[] = STATES.map((state) => {
+  const projectsByState: ProjectStateRow[] = activeStates.map((state) => {
     const stateRows = rows.filter((r) => r.state === state);
     const breakdown: Record<string, number> = {
       none: 0,
@@ -75,7 +84,7 @@ export const ProjectsChallengesTab: React.FC<ProjectsChallengesTabProps> = ({ ro
   }).filter((p) => p.count > 0 || p.code !== 'other');
 
   // 2. Weekly State Intelligence Submitted Share (yes/no)
-  const intelByState = STATES.map((state) => {
+  const intelByState = activeStates.map((state) => {
     const stateRows = rows.filter((r) => r.state === state);
     const yesCount = stateRows.filter((r) => r.intel === 'yes').length;
     const total = stateRows.length;
@@ -131,8 +140,8 @@ export const ProjectsChallengesTab: React.FC<ProjectsChallengesTabProps> = ({ ro
     }))
     .sort((a, b) => b.count - a.count);
 
-  // 4. Challenges by State Matrix
-  const challengesByState = STATES.map((state) => {
+  // 4. Challenges by State Matrix (scoped to active states)
+  const challengesByState = activeStates.map((state) => {
     const stateRows = rows.filter((r) => r.state === state);
     const stateChallenges: Record<string, number> = {};
     challengeKeys.forEach((k) => (stateChallenges[k] = 0));
@@ -231,7 +240,9 @@ export const ProjectsChallengesTab: React.FC<ProjectsChallengesTabProps> = ({ ro
       {/* Section 2: Projects Breakdown by State */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
         <div className="px-6 py-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
-          <h4 className="font-bold text-slate-900 text-sm">Project Deliverables by State</h4>
+          <h4 className="font-bold text-slate-900 text-sm">
+            {activeStates.length === 1 ? `Project Deliverables — ${activeStates[0]}` : 'Project Deliverables by State'}
+          </h4>
           <span className="text-xs font-mono text-slate-500">Heifer, SHA, Ignitia & Core Ops</span>
         </div>
 

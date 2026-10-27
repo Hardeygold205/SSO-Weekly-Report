@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   ResponsiveContainer,
   BarChart,
@@ -25,8 +25,17 @@ interface RevenueTabProps {
 }
 
 export const RevenueTab: React.FC<RevenueTabProps> = ({ rows, targets }) => {
-  // 1. Revenue by State
-  const revenueByState = STATES.map((state) => {
+  // Determine active states matching the active filter selection
+  const activeStates = useMemo(() => {
+    const statesInRows = Array.from(new Set(rows.map((r) => r.state))).filter(Boolean);
+    if (statesInRows.length > 0 && statesInRows.length < STATES.length) {
+      return STATES.filter((s) => statesInRows.includes(s));
+    }
+    return STATES;
+  }, [rows]);
+
+  // 1. Revenue by State (scoped to active states)
+  const revenueByState = activeStates.map((state) => {
     const stateRows = rows.filter((r) => r.state === state);
     const actualRev = stateRows.reduce((sum, r) => sum + r.rev, 0);
     const q4Target = getTargetValue(targets, state, 'Revenue', 'Q4') || 0;
@@ -44,8 +53,8 @@ export const RevenueTab: React.FC<RevenueTabProps> = ({ rows, targets }) => {
   const allWeeks = Array.from(new Set(rows.map((r) => r.week_start))).filter(Boolean).sort();
   let cumulativeActual = 0;
 
-  // Calculate overall Q4 target across 7 states
-  const totalQ4Target = STATES.reduce(
+  // Calculate Q4 target scoped to activeStates
+  const totalQ4Target = activeStates.reduce(
     (sum, state) => sum + (getTargetValue(targets, state, 'Revenue', 'Q4') || 0),
     0
   );
@@ -101,7 +110,7 @@ export const RevenueTab: React.FC<RevenueTabProps> = ({ rows, targets }) => {
             {formatNaira(totalQ4Target)}
           </div>
           <p className="text-xs text-slate-500 mt-2">
-            Combined 3-month quota for all 7 states
+            {activeStates.length === 1 ? `3-month quota for ${activeStates[0]}` : `Combined 3-month quota for ${activeStates.length} states`}
           </p>
         </div>
 
@@ -136,7 +145,9 @@ export const RevenueTab: React.FC<RevenueTabProps> = ({ rows, targets }) => {
       <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-xs">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h4 className="font-bold text-slate-900 text-sm">Revenue by State vs Q4 Target (₦)</h4>
+            <h4 className="font-bold text-slate-900 text-sm">
+              Revenue by State vs Q4 Target (₦) {activeStates.length === 1 ? `— ${activeStates[0]}` : ''}
+            </h4>
             <p className="text-xs text-slate-500">Commercial revenue performance compared against allocated state quotas</p>
           </div>
         </div>
