@@ -75,8 +75,22 @@ export const FilterBar: React.FC<FilterBarProps> = ({
           <div className="flex items-center">
             <select
               value={filters.state}
-              onChange={(e) => onFilterChange({ state: e.target.value })}
-              className="px-2.5 py-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-md text-slate-800 font-medium text-xs focus:ring-1 focus:ring-[#1F6B3A] focus:outline-none"
+              onChange={(e) => {
+                const newState = e.target.value;
+                if (newState !== 'all' && filters.officer !== 'all') {
+                  const currentOfficer = OFFICERS.find(
+                    (o) =>
+                      o.name.toLowerCase() === filters.officer.toLowerCase() ||
+                      o.code.toLowerCase() === filters.officer.toLowerCase()
+                  );
+                  if (currentOfficer && currentOfficer.state.toLowerCase() !== newState.toLowerCase()) {
+                    onFilterChange({ state: newState, officer: 'all' });
+                    return;
+                  }
+                }
+                onFilterChange({ state: newState });
+              }}
+              className="px-2.5 py-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-md text-slate-800 font-medium text-xs focus:ring-1 focus:ring-[#1F6B3A] focus:outline-none cursor-pointer"
             >
               <option value="all">All States (7)</option>
               {STATES.map((st) => (
@@ -91,8 +105,22 @@ export const FilterBar: React.FC<FilterBarProps> = ({
           <div className="flex items-center">
             <select
               value={filters.officer}
-              onChange={(e) => onFilterChange({ officer: e.target.value })}
-              className="px-2.5 py-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-md text-slate-800 font-medium text-xs focus:ring-1 focus:ring-[#1F6B3A] focus:outline-none"
+              onChange={(e) => {
+                const newOfficer = e.target.value;
+                if (newOfficer !== 'all') {
+                  const off = OFFICERS.find(
+                    (o) =>
+                      o.name.toLowerCase() === newOfficer.toLowerCase() ||
+                      o.code.toLowerCase() === newOfficer.toLowerCase()
+                  );
+                  if (off && filters.state !== 'all' && filters.state.toLowerCase() !== off.state.toLowerCase()) {
+                    onFilterChange({ officer: newOfficer, state: off.state });
+                    return;
+                  }
+                }
+                onFilterChange({ officer: newOfficer });
+              }}
+              className="px-2.5 py-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-md text-slate-800 font-medium text-xs focus:ring-1 focus:ring-[#1F6B3A] focus:outline-none cursor-pointer"
             >
               <option value="all">All Officers (7 SSOs)</option>
               {OFFICERS.map((o) => (

@@ -1,9 +1,6 @@
 import React from 'react';
 import {
   RefreshCw,
-  Printer,
-  Lock,
-  Upload,
   AlertTriangle,
   Info,
   CheckCircle2,
@@ -19,7 +16,6 @@ interface HeaderProps {
   refreshError: string | null;
   targetsWarning: string | null;
   onRefreshNow: () => void;
-  onOpenUpload: () => void;
   onExitSample: () => void;
 }
 
@@ -32,7 +28,6 @@ export const Header: React.FC<HeaderProps> = ({
   refreshError,
   targetsWarning,
   onRefreshNow,
-  onOpenUpload,
   onExitSample,
 }) => {
   return (
@@ -103,21 +98,11 @@ export const Header: React.FC<HeaderProps> = ({
             <button
               onClick={onRefreshNow}
               disabled={isRefreshing}
-              className="px-3 py-1.5 bg-white/10 hover:bg-white/20 disabled:opacity-50 rounded-lg font-medium text-white transition-colors flex items-center gap-1.5 border border-white/10"
+              className="px-3 py-1.5 bg-white/10 hover:bg-white/20 disabled:opacity-50 rounded-lg font-medium text-white transition-colors flex items-center gap-1.5 border border-white/10 cursor-pointer"
               title="Fetch latest submissions now (&refresh=1)"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
               <span className="hidden sm:inline">Refresh</span>
-            </button>
-
-            {/* Upload Button */}
-            <button
-              onClick={onOpenUpload}
-              className="px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded-lg font-medium text-white transition-colors flex items-center gap-1.5 border border-white/10"
-              title="Upload Kobo export or targets spreadsheet"
-            >
-              <Upload className="w-3.5 h-3.5 text-amber-300" />
-              <span className="hidden sm:inline">Upload</span>
             </button>
           </div>
         </div>

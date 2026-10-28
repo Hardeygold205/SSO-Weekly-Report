@@ -16,6 +16,7 @@ import { CleanedReportRow, TargetItem } from '../../types/index.ts';
 import { generateKeyInsights } from '../../utils/insights.ts';
 import { formatNaira, formatNumber, formatPercent } from '../../utils/formatters.ts';
 import { STATES } from '../../constants/index.ts';
+import { resolveActiveStates } from '../../utils/cleaner.ts';
 
 interface OverviewTabProps {
   rows: CleanedReportRow[];
@@ -54,15 +55,10 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   const coopTrainSessions = rows.reduce((sum, r) => sum + r.coop_train, 0);
   const totalRevenue = rows.reduce((sum, r) => sum + r.rev, 0);
 
-  // Active states reflecting selected filters
+  // Active states reflecting selected filters strictly (All 7 states when 'all', or only the chosen state/officer)
   const activeStates = useMemo(() => {
-    if (selectedState !== 'all') return [selectedState];
-    const inRows = Array.from(new Set(rows.map((r) => r.state))).filter(Boolean);
-    if (inRows.length > 0 && inRows.length < STATES.length) {
-      return STATES.filter((s) => inRows.includes(s));
-    }
-    return STATES;
-  }, [selectedState, rows]);
+    return resolveActiveStates(selectedState, selectedOfficer);
+  }, [selectedState, selectedOfficer]);
 
   // Key insights generated deterministically
   const insights = generateKeyInsights(rows, targets, selectedWeek);

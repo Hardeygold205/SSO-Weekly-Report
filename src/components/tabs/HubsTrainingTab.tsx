@@ -12,23 +12,26 @@ import {
 import { CleanedReportRow, TargetItem } from '../../types/index.ts';
 import { STATES, OFFICERS } from '../../constants/index.ts';
 import { formatNumber, formatDateString } from '../../utils/formatters.ts';
-import { getTargetValue } from '../../utils/cleaner.ts';
+import { getTargetValue, resolveActiveStates } from '../../utils/cleaner.ts';
 import { CheckCircle2, XCircle, AlertTriangle, GraduationCap, MapPin, Building } from 'lucide-react';
 
 interface HubsTrainingTabProps {
   rows: CleanedReportRow[];
   targets: TargetItem[];
+  selectedState?: string;
+  selectedOfficer?: string;
 }
 
-export const HubsTrainingTab: React.FC<HubsTrainingTabProps> = ({ rows, targets }) => {
-  // Determine active states matching the active filter selection
+export const HubsTrainingTab: React.FC<HubsTrainingTabProps> = ({
+  rows,
+  targets,
+  selectedState = 'all',
+  selectedOfficer = 'all',
+}) => {
+  // Determine active states strictly matching the active filter selection
   const activeStates = useMemo(() => {
-    const statesInRows = Array.from(new Set(rows.map((r) => r.state))).filter(Boolean);
-    if (statesInRows.length > 0 && statesInRows.length < STATES.length) {
-      return STATES.filter((s) => statesInRows.includes(s));
-    }
-    return STATES;
-  }, [rows]);
+    return resolveActiveStates(selectedState, selectedOfficer);
+  }, [selectedState, selectedOfficer]);
 
   // 1. Data by State for Hubs
   const stateHubData = activeStates.map((state) => {

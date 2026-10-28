@@ -62,24 +62,39 @@ export function dateDiffDays(laterStr: string, earlierStr: string): number {
   return Math.round((d1 - d2) / (1000 * 60 * 60 * 24));
 }
 
-// Find officer from raw value (code or name)
-export function resolveOfficer(rawSso: unknown): { code: string; name: string; state: string } {
-  if (!rawSso) return { code: '', name: '', state: '' };
-  const s = String(rawSso).trim().toLowerCase();
+// Find officer from raw value (code, name, parts of name, or state)
+export function resolveOfficer(rawSso: unknown, rawState?: unknown): { code: string; name: string; state: string } {
+  const s = String(rawSso || '').trim().toLowerCase();
+  const st = String(rawState || '').trim().toLowerCase();
 
-  // Try exact code match
-  const byCode = OFFICERS.find((o) => o.code.toLowerCase() === s);
-  if (byCode) return byCode;
+  if (s) {
+    // Try exact code match
+    const byCode = OFFICERS.find((o) => o.code.toLowerCase() === s);
+    if (byCode) return byCode;
 
-  // Try exact or partial name match
-  const byName = OFFICERS.find(
-    (o) => o.name.toLowerCase() === s || s.includes(o.name.toLowerCase()) || o.name.toLowerCase().includes(s)
-  );
-  if (byName) return byName;
+    // Try exact or partial name match
+    const byName = OFFICERS.find(
+      (o) => o.name.toLowerCase() === s || s.includes(o.name.toLowerCase()) || o.name.toLowerCase().includes(s)
+    );
+    if (byName) return byName;
 
-  // Check state match
-  const byState = OFFICERS.find((o) => o.state.toLowerCase() === s);
-  if (byState) return byState;
+    // Check individual name parts (e.g. "yakubu", "abdullahi", "blessing", "gambo", "musbhu", "mading", "isah")
+    const byParts = OFFICERS.find((o) => {
+      const parts = o.name.toLowerCase().split(' ');
+      return parts.some((p) => p.length >= 4 && s.includes(p));
+    });
+    if (byParts) return byParts;
+
+    // Check state match in sso field
+    const byState = OFFICERS.find((o) => o.state.toLowerCase() === s || s.includes(o.state.toLowerCase()));
+    if (byState) return byState;
+  }
+
+  // Fallback to rawState match if provided
+  if (st) {
+    const byState = OFFICERS.find((o) => o.state.toLowerCase() === st || st.includes(o.state.toLowerCase()));
+    if (byState) return byState;
+  }
 
   // Fallback: format name from code or string
   const cleanName = s
@@ -93,9 +108,55 @@ export function normalizeState(rawState: unknown, officerState?: string): string
   if (officerState) return officerState;
   if (!rawState) return '';
   const s = String(rawState).trim().toLowerCase();
-  const found = STATES.find((st) => st.toLowerCase() === s || s.includes(st.toLowerCase()));
+  const found = STATES.find((st) => st.toLowerCase() === s || s.includes(st.toLowerCase()) || st.toLowerCase().includes(s));
   if (found) return found;
   return String(rawState).trim();
+}
+
+// Resolve active states strictly based on active filter selections
+export function resolveActiveStates(selectedState?: string, selectedOfficer?: string): string[] {
+  // If user selected a specific state (e.g. 'Kano'), show strictly that state
+  if (selectedState && selectedState !== 'all') {
+    const matched = STATES.find((s) => s.toLowerCase() === selectedState.toLowerCase());
+    return [matched || selectedState];
+  }
+
+  // If user selected a specific officer (e.g. 'Abdullahi Yakubu'), show strictly that officer's state
+  if (selectedOfficer && selectedOfficer !== 'all') {
+    const off = OFFICERS.find(
+      (o) =>
+        o.name.toLowerCase() === selectedOfficer.toLowerCase() ||
+        o.code.toLowerCase() === selectedOfficer.toLowerCase()
+    );
+    if (off && off.state) {
+      return [off.state];
+    }
+  }
+
+  // When 'all' (default management view), ALWAYS return all 7 official Nigerian states
+  // [Benue, Jigawa, Kaduna, Kano, Nasarawa, Taraba, Yobe]
+  // This guarantees Kano is always tracked and shown alongside its targets even if submission is pending.
+  return STATES;
+}
+
+// Resolve active officers strictly based on active filter selections
+export function resolveActiveOfficers(selectedOfficer?: string, selectedState?: string) {
+  if (selectedOfficer && selectedOfficer !== 'all') {
+    const off = OFFICERS.find(
+      (o) =>
+        o.name.toLowerCase() === selectedOfficer.toLowerCase() ||
+        o.code.toLowerCase() === selectedOfficer.toLowerCase()
+    );
+    if (off) return [off];
+  }
+
+  if (selectedState && selectedState !== 'all') {
+    const off = OFFICERS.find((o) => o.state.toLowerCase() === selectedState.toLowerCase());
+    if (off) return [off];
+  }
+
+  // When 'all', show all 7 official SSOs
+  return OFFICERS;
 }
 
 // Normalize boolean (FCH operational)
@@ -188,12 +249,10 @@ export function cleanKoboRows(rawRows: RawKoboRow[] = []): {
       ''
     ).trim();
 
-    // Officer
+    // Officer & State
     const rawSso = normalized['sso'] || normalized['sales officer'] || normalized['officer'] || '';
-    const officer = resolveOfficer(rawSso);
-
-    // State
     const rawState = normalized['state'] || '';
+    const officer = resolveOfficer(rawSso, rawState);
     const state = normalizeState(rawState, officer.state);
 
     // Missing checks

@@ -1,28 +1,50 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
+import { Eye, EyeOff } from 'lucide-react';
 import { CleanedReportRow, TargetItem } from '../../types/index.ts';
 import { STATES } from '../../constants/index.ts';
 import { formatNaira, formatNumber, formatPercent, getPercentStatusClass } from '../../utils/formatters.ts';
-import { getTargetValue } from '../../utils/cleaner.ts';
+import { getTargetValue, resolveActiveStates } from '../../utils/cleaner.ts';
 
 interface ProgressTabProps {
   rows: CleanedReportRow[];
   targets: TargetItem[];
   showTargets: boolean;
+  selectedState?: string;
+  selectedOfficer?: string;
 }
 
 export const ProgressTab: React.FC<ProgressTabProps> = ({
   rows,
   targets,
   showTargets,
+  selectedState = 'all',
+  selectedOfficer = 'all',
 }) => {
-  // Determine active states matching the active filter selection
+  // Month column visibility toggles for Table 2 (Revenue by Month)
+  const [visibleMonths, setVisibleMonths] = useState<{
+    oct: boolean;
+    nov: boolean;
+    dec: boolean;
+  }>({
+    oct: true,
+    nov: true,
+    dec: true,
+  });
+
+  const toggleMonth = (m: 'oct' | 'nov' | 'dec') => {
+    setVisibleMonths((prev) => ({ ...prev, [m]: !prev[m] }));
+  };
+
+  const showAllMonths = () => {
+    setVisibleMonths({ oct: true, nov: true, dec: true });
+  };
+
+  // Determine active states strictly based on user filter selections
+  // When 'all', ALWAYS includes all 7 states (including Kano with 0 actuals / targets)
+  // When 'Kano' selected, strictly displays only Kano
   const activeStates = useMemo(() => {
-    const statesInRows = Array.from(new Set(rows.map((r) => r.state))).filter(Boolean);
-    if (statesInRows.length > 0 && statesInRows.length < STATES.length) {
-      return STATES.filter((s) => statesInRows.includes(s));
-    }
-    return STATES;
-  }, [rows]);
+    return resolveActiveStates(selectedState, selectedOfficer);
+  }, [selectedState, selectedOfficer]);
 
   // Helper for KPI metric progress by state
   const getStateMetrics = (state: string) => {
@@ -303,9 +325,66 @@ export const ProgressTab: React.FC<ProgressTabProps> = ({
 
       {/* Table 2: Revenue vs Monthly Targets */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
-        <div className="px-6 py-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
-          <h4 className="font-bold text-slate-900 text-sm">2. Revenue Performance by Month & Q4 Total (in Naira)</h4>
-          <span className="text-xs font-mono text-slate-500">October - December 2026</span>
+        <div className="px-6 py-4 border-b border-slate-200 bg-slate-50 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h4 className="font-bold text-slate-900 text-sm">2. Revenue Performance by Month & Q4 Total (in Naira)</h4>
+            <span className="text-xs font-mono text-slate-500">October - December 2026</span>
+          </div>
+
+          {/* Month Columns Visibility Controls */}
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider text-[11px] mr-1">
+              Toggle Months:
+            </span>
+            <button
+              type="button"
+              onClick={() => toggleMonth('oct')}
+              className={`px-2.5 py-1 rounded-md text-xs font-medium flex items-center gap-1.5 transition-colors border cursor-pointer ${
+                visibleMonths.oct
+                  ? 'bg-amber-100 text-amber-900 border-amber-300 hover:bg-amber-200'
+                  : 'bg-slate-100 text-slate-400 border-slate-200 line-through hover:bg-slate-200'
+              }`}
+              title={visibleMonths.oct ? 'Click to hide October column' : 'Click to show October column'}
+            >
+              {visibleMonths.oct ? <Eye className="w-3 h-3 text-amber-700" /> : <EyeOff className="w-3 h-3 text-slate-400" />}
+              <span>October</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => toggleMonth('nov')}
+              className={`px-2.5 py-1 rounded-md text-xs font-medium flex items-center gap-1.5 transition-colors border cursor-pointer ${
+                visibleMonths.nov
+                  ? 'bg-amber-100 text-amber-900 border-amber-300 hover:bg-amber-200'
+                  : 'bg-slate-100 text-slate-400 border-slate-200 line-through hover:bg-slate-200'
+              }`}
+              title={visibleMonths.nov ? 'Click to hide November column' : 'Click to show November column'}
+            >
+              {visibleMonths.nov ? <Eye className="w-3 h-3 text-amber-700" /> : <EyeOff className="w-3 h-3 text-slate-400" />}
+              <span>November</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => toggleMonth('dec')}
+              className={`px-2.5 py-1 rounded-md text-xs font-medium flex items-center gap-1.5 transition-colors border cursor-pointer ${
+                visibleMonths.dec
+                  ? 'bg-amber-100 text-amber-900 border-amber-300 hover:bg-amber-200'
+                  : 'bg-slate-100 text-slate-400 border-slate-200 line-through hover:bg-slate-200'
+              }`}
+              title={visibleMonths.dec ? 'Click to hide December column' : 'Click to show December column'}
+            >
+              {visibleMonths.dec ? <Eye className="w-3 h-3 text-amber-700" /> : <EyeOff className="w-3 h-3 text-slate-400" />}
+              <span>December</span>
+            </button>
+            {(!visibleMonths.oct || !visibleMonths.nov || !visibleMonths.dec) && (
+              <button
+                type="button"
+                onClick={showAllMonths}
+                className="text-xs text-[#1F6B3A] hover:underline font-semibold ml-1 cursor-pointer"
+              >
+                Show All
+              </button>
+            )}
+          </div>
         </div>
 
         <div className="overflow-x-auto">
@@ -313,34 +392,79 @@ export const ProgressTab: React.FC<ProgressTabProps> = ({
             <thead>
               <tr className="bg-slate-100 text-[11px] font-bold text-slate-600 uppercase tracking-wider border-b border-slate-200">
                 <th className="px-4 py-3 sticky left-0 bg-slate-100 z-10">State</th>
-                <th colSpan={showTargets ? 3 : 2} className="px-3 py-2 text-center border-l border-slate-200 bg-amber-50/50 text-amber-900">
-                  October 2026
-                </th>
-                <th colSpan={showTargets ? 3 : 2} className="px-3 py-2 text-center border-l border-slate-200 bg-amber-50/50 text-amber-900">
-                  November 2026
-                </th>
-                <th colSpan={showTargets ? 3 : 2} className="px-3 py-2 text-center border-l border-slate-200 bg-amber-50/50 text-amber-900">
-                  December 2026
-                </th>
+                {visibleMonths.oct && (
+                  <th colSpan={showTargets ? 3 : 2} className="px-3 py-2 text-center border-l border-slate-200 bg-amber-50/50 text-amber-900">
+                    <div className="flex items-center justify-center gap-1.5">
+                      <span>October 2026</span>
+                      <button
+                        type="button"
+                        onClick={() => toggleMonth('oct')}
+                        className="text-[10px] bg-amber-200/80 hover:bg-amber-300 px-1.5 py-0.5 rounded text-amber-950 font-normal transition-colors cursor-pointer"
+                        title="Hide October column"
+                      >
+                        Hide
+                      </button>
+                    </div>
+                  </th>
+                )}
+                {visibleMonths.nov && (
+                  <th colSpan={showTargets ? 3 : 2} className="px-3 py-2 text-center border-l border-slate-200 bg-amber-50/50 text-amber-900">
+                    <div className="flex items-center justify-center gap-1.5">
+                      <span>November 2026</span>
+                      <button
+                        type="button"
+                        onClick={() => toggleMonth('nov')}
+                        className="text-[10px] bg-amber-200/80 hover:bg-amber-300 px-1.5 py-0.5 rounded text-amber-950 font-normal transition-colors cursor-pointer"
+                        title="Hide November column"
+                      >
+                        Hide
+                      </button>
+                    </div>
+                  </th>
+                )}
+                {visibleMonths.dec && (
+                  <th colSpan={showTargets ? 3 : 2} className="px-3 py-2 text-center border-l border-slate-200 bg-amber-50/50 text-amber-900">
+                    <div className="flex items-center justify-center gap-1.5">
+                      <span>December 2026</span>
+                      <button
+                        type="button"
+                        onClick={() => toggleMonth('dec')}
+                        className="text-[10px] bg-amber-200/80 hover:bg-amber-300 px-1.5 py-0.5 rounded text-amber-950 font-normal transition-colors cursor-pointer"
+                        title="Hide December column"
+                      >
+                        Hide
+                      </button>
+                    </div>
+                  </th>
+                )}
                 <th colSpan={showTargets ? 3 : 2} className="px-3 py-2 text-center border-l-2 border-emerald-600 bg-emerald-50 text-[#1F6B3A]">
                   Q4 Total Revenue
                 </th>
               </tr>
               <tr className="bg-slate-50 text-[10px] font-semibold text-slate-500 uppercase border-b border-slate-200">
                 <th className="px-4 py-2 sticky left-0 bg-slate-50 z-10">Location</th>
-                {showTargets && <th className="px-3 py-2 text-right border-l border-slate-100">Target</th>}
-                <th className="px-3 py-2 text-right">Actual</th>
-                <th className="px-3 py-2 text-right">%</th>
-
-                {showTargets && <th className="px-3 py-2 text-right border-l border-slate-100">Target</th>}
-                <th className="px-3 py-2 text-right">Actual</th>
-                <th className="px-3 py-2 text-right">%</th>
-
-                {showTargets && <th className="px-3 py-2 text-right border-l border-slate-100">Target</th>}
-                <th className="px-3 py-2 text-right">Actual</th>
-                <th className="px-3 py-2 text-right">%</th>
-
-                {showTargets && <th className="px-3 py-2 text-right border-l border-slate-100">Target</th>}
+                {visibleMonths.oct && (
+                  <>
+                    {showTargets && <th className="px-3 py-2 text-right border-l border-slate-100">Target</th>}
+                    <th className="px-3 py-2 text-right">Actual</th>
+                    <th className="px-3 py-2 text-right">%</th>
+                  </>
+                )}
+                {visibleMonths.nov && (
+                  <>
+                    {showTargets && <th className="px-3 py-2 text-right border-l border-slate-100">Target</th>}
+                    <th className="px-3 py-2 text-right">Actual</th>
+                    <th className="px-3 py-2 text-right">%</th>
+                  </>
+                )}
+                {visibleMonths.dec && (
+                  <>
+                    {showTargets && <th className="px-3 py-2 text-right border-l border-slate-100">Target</th>}
+                    <th className="px-3 py-2 text-right">Actual</th>
+                    <th className="px-3 py-2 text-right">%</th>
+                  </>
+                )}
+                {showTargets && <th className="px-3 py-2 text-right border-l-2 border-emerald-300">Target</th>}
                 <th className="px-3 py-2 text-right">Actual</th>
                 <th className="px-3 py-2 text-right">%</th>
               </tr>
@@ -351,9 +475,9 @@ export const ProgressTab: React.FC<ProgressTabProps> = ({
                   <td className="px-4 py-2.5 font-bold text-xs text-slate-800 sticky left-0 bg-white z-10 shadow-xs">
                     {row.state}
                   </td>
-                  {renderRevenueCells(row.oct)}
-                  {renderRevenueCells(row.nov)}
-                  {renderRevenueCells(row.dec)}
+                  {visibleMonths.oct && renderRevenueCells(row.oct)}
+                  {visibleMonths.nov && renderRevenueCells(row.nov)}
+                  {visibleMonths.dec && renderRevenueCells(row.dec)}
                   {renderRevenueCells(row.q4)}
                 </tr>
               ))}
@@ -363,9 +487,9 @@ export const ProgressTab: React.FC<ProgressTabProps> = ({
                 <td className="px-4 py-3 sticky left-0 bg-slate-100/90 z-10 uppercase tracking-wider">
                   Total (All States)
                 </td>
-                {renderRevenueCells({ target: totalOctTarget, actual: totalOctActual, pct: totalOctPct })}
-                {renderRevenueCells({ target: totalNovTarget, actual: totalNovActual, pct: totalNovPct })}
-                {renderRevenueCells({ target: totalDecTarget, actual: totalDecActual, pct: totalDecPct })}
+                {visibleMonths.oct && renderRevenueCells({ target: totalOctTarget, actual: totalOctActual, pct: totalOctPct })}
+                {visibleMonths.nov && renderRevenueCells({ target: totalNovTarget, actual: totalNovActual, pct: totalNovPct })}
+                {visibleMonths.dec && renderRevenueCells({ target: totalDecTarget, actual: totalDecActual, pct: totalDecPct })}
                 {renderRevenueCells({ target: totalQ4Target, actual: totalQ4Actual, pct: totalQ4Pct })}
               </tr>
             </tfoot>

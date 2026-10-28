@@ -26,7 +26,6 @@ import { SAMPLE_KOBO_ROWS, SAMPLE_TARGETS } from './services/sampleData.ts';
 // Components
 import { Header } from './components/Header.tsx';
 import { FilterBar } from './components/FilterBar.tsx';
-import { UploadModal } from './components/UploadModal.tsx';
 
 // Tabs
 import { OverviewTab } from './components/tabs/OverviewTab.tsx';
@@ -82,9 +81,8 @@ export default function App() {
   const [targetsWarning, setTargetsWarning] = useState<string | null>(null);
   const [qualityReport, setQualityReport] = useState<DataQualityReport | null>(null);
 
-  // Navigation & Modals
+  // Navigation
   const [activeTab, setActiveTab] = useState<TabId>('overview');
-  const [isUploadModalOpen, setIsUploadModalOpen] = useState<boolean>(false);
 
   // Global Filters
   const [filters, setFilters] = useState<GlobalFilterState>({
@@ -246,23 +244,6 @@ export default function App() {
     fetchDirectFromAppsScript(false);
   };
 
-  // Upload handlers
-  const handleKoboDataLoaded = (uploadedRows: RawKoboRow[]) => {
-    setIsSampleMode(false);
-    const now = new Date().toISOString();
-    setDataUpdatedTime(now);
-    setLastSuccessfulLoadTime(now);
-    processData(uploadedRows);
-  };
-
-  const handleTargetsLoaded = (uploadedTargets: TargetItem[]) => {
-    setTargets(uploadedTargets);
-    setIsUsingDefaultTargets(false);
-    setTargetsUpdatedTime(new Date().toISOString());
-    setTargetsWarning(null);
-    processData(rawRows, uploadedTargets);
-  };
-
   // Available Filter Options (Distinct months and weeks)
   const availableMonths = useMemo(() => {
     const months = Array.from(new Set(cleanedRows.map((r) => r.month))).filter(Boolean);
@@ -325,7 +306,6 @@ export default function App() {
         refreshError={refreshError}
         targetsWarning={targetsWarning}
         onRefreshNow={() => fetchDirectFromAppsScript(true)}
-        onOpenUpload={() => setIsUploadModalOpen(true)}
         onExitSample={handleExitSample}
       />
 
@@ -380,27 +360,21 @@ export default function App() {
             </div>
             <h3 className="text-lg font-bold text-slate-900">No Weekly Submissions Recorded</h3>
             <p className="text-sm text-slate-500 max-w-md mx-auto mt-2">
-              There is currently no submission data available from the connected endpoint. You can refresh live data,
-              load demonstration sample data, or upload a Kobo export spreadsheet.
+              There is currently no submission data available from the connected endpoint. You can refresh live data
+              or load demonstration sample data.
             </p>
             <div className="mt-6 flex flex-wrap justify-center gap-3">
               <button
                 onClick={() => fetchDirectFromAppsScript(true)}
-                className="px-4 py-2 bg-[#1F6B3A] text-white text-xs font-semibold rounded-lg hover:bg-[#18532D] transition-colors"
+                className="px-4 py-2 bg-[#1F6B3A] text-white text-xs font-semibold rounded-lg hover:bg-[#18532D] transition-colors cursor-pointer"
               >
                 Refresh Now
               </button>
               <button
                 onClick={handleLoadSample}
-                className="px-4 py-2 bg-amber-500 text-slate-900 text-xs font-bold rounded-lg hover:bg-amber-400 transition-colors"
+                className="px-4 py-2 bg-amber-500 text-slate-900 text-xs font-bold rounded-lg hover:bg-amber-400 transition-colors cursor-pointer"
               >
                 Load Demonstration Data
-              </button>
-              <button
-                onClick={() => setIsUploadModalOpen(true)}
-                className="px-4 py-2 bg-slate-100 text-slate-700 text-xs font-medium rounded-lg hover:bg-slate-200 transition-colors"
-              >
-                Upload File (.xlsx / .csv)
               </button>
             </div>
           </div>
@@ -423,17 +397,25 @@ export default function App() {
                 rows={filteredRows}
                 targets={targets}
                 showTargets={filters.showTargets}
+                selectedState={filters.state}
+                selectedOfficer={filters.officer}
               />
             )}
 
             {activeTab === 'pipeline' && (
-              <PipelineTab rows={filteredRows} />
+              <PipelineTab
+                rows={filteredRows}
+                selectedState={filters.state}
+                selectedOfficer={filters.officer}
+              />
             )}
 
             {activeTab === 'hubs' && (
               <HubsTrainingTab
                 rows={filteredRows}
                 targets={targets}
+                selectedState={filters.state}
+                selectedOfficer={filters.officer}
               />
             )}
 
@@ -441,15 +423,26 @@ export default function App() {
               <RevenueTab
                 rows={filteredRows}
                 targets={targets}
+                selectedState={filters.state}
+                selectedOfficer={filters.officer}
               />
             )}
 
             {activeTab === 'discipline' && (
-              <DisciplineTab rows={filteredRows} />
+              <DisciplineTab
+                rows={filteredRows}
+                selectedState={filters.state}
+                selectedOfficer={filters.officer}
+                availableWeeks={availableWeeks}
+              />
             )}
 
             {activeTab === 'projects' && (
-              <ProjectsChallengesTab rows={filteredRows} />
+              <ProjectsChallengesTab
+                rows={filteredRows}
+                selectedState={filters.state}
+                selectedOfficer={filters.officer}
+              />
             )}
 
             {activeTab === 'quality' && qualityReport && (
@@ -486,14 +479,6 @@ export default function App() {
           </div>
         </div>
       </footer>
-
-      {/* Upload modal */}
-      <UploadModal
-        isOpen={isUploadModalOpen}
-        onClose={() => setIsUploadModalOpen(false)}
-        onKoboDataLoaded={handleKoboDataLoaded}
-        onTargetsLoaded={handleTargetsLoaded}
-      />
     </div>
   );
 }

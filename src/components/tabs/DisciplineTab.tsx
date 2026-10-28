@@ -12,33 +12,26 @@ import {
 import { CleanedReportRow } from '../../types/index.ts';
 import { OFFICERS } from '../../constants/index.ts';
 import { formatPercent, formatDateString } from '../../utils/formatters.ts';
-import { addDaysToDate } from '../../utils/cleaner.ts';
+import { addDaysToDate, resolveActiveOfficers } from '../../utils/cleaner.ts';
 import { CheckCircle2, Clock, AlertCircle, Calendar } from 'lucide-react';
 
 interface DisciplineTabProps {
   rows: CleanedReportRow[];
+  selectedState?: string;
+  selectedOfficer?: string;
+  availableWeeks?: string[];
 }
 
-export const DisciplineTab: React.FC<DisciplineTabProps> = ({ rows }) => {
-  // Derive active officers matching the active filter selection
+export const DisciplineTab: React.FC<DisciplineTabProps> = ({
+  rows,
+  selectedState = 'all',
+  selectedOfficer = 'all',
+  availableWeeks = [],
+}) => {
+  // Derive active officers strictly matching the active filter selection
   const activeOfficers = useMemo(() => {
-    const officersInRows = Array.from(
-      new Set(
-        rows
-          .map((r) => r.sso_code?.toLowerCase())
-          .concat(rows.map((r) => r.sso_name?.toLowerCase()))
-      )
-    ).filter(Boolean);
-
-    if (officersInRows.length > 0 && officersInRows.length < OFFICERS.length) {
-      return OFFICERS.filter(
-        (o) =>
-          officersInRows.includes(o.code.toLowerCase()) ||
-          officersInRows.includes(o.name.toLowerCase())
-      );
-    }
-    return OFFICERS;
-  }, [rows]);
+    return resolveActiveOfficers(selectedOfficer, selectedState);
+  }, [selectedOfficer, selectedState]);
 
   // 1. Overall Metrics
   const totalReports = rows.length;
@@ -52,7 +45,11 @@ export const DisciplineTab: React.FC<DisciplineTabProps> = ({ rows }) => {
       : 0;
 
   // 2. Discipline by Week (Stacked Bar)
-  const allWeeks = Array.from(new Set(rows.map((r) => r.week_start))).filter(Boolean).sort();
+  const allWeeks = useMemo(() => {
+    if (availableWeeks && availableWeeks.length > 0) return availableWeeks;
+    return Array.from(new Set(rows.map((r) => r.week_start))).filter(Boolean).sort();
+  }, [availableWeeks, rows]);
+
   const weeklyDiscipline = allWeeks.map((week) => {
     const weekRows = rows.filter((r) => r.week_start === week);
     const onTime = weekRows.filter((r) => r.submission_status === 'On time').length;

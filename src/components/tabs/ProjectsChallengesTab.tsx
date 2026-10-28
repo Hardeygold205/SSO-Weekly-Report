@@ -14,10 +14,13 @@ import {
 import { CleanedReportRow } from '../../types/index.ts';
 import { STATES, PROJECT_LABELS, CHALLENGE_LABELS } from '../../constants/index.ts';
 import { formatNumber, formatPercent, formatDateString } from '../../utils/formatters.ts';
+import { resolveActiveStates } from '../../utils/cleaner.ts';
 import { Briefcase, AlertOctagon, FileCheck, Layers } from 'lucide-react';
 
 interface ProjectsChallengesTabProps {
   rows: CleanedReportRow[];
+  selectedState?: string;
+  selectedOfficer?: string;
 }
 
 interface ProjectStateRow {
@@ -31,15 +34,15 @@ interface ProjectStateRow {
   [key: string]: string | number;
 }
 
-export const ProjectsChallengesTab: React.FC<ProjectsChallengesTabProps> = ({ rows }) => {
-  // Determine active states matching the active filter selection
+export const ProjectsChallengesTab: React.FC<ProjectsChallengesTabProps> = ({
+  rows,
+  selectedState = 'all',
+  selectedOfficer = 'all',
+}) => {
+  // Determine active states strictly matching the active filter selection
   const activeStates = useMemo(() => {
-    const statesInRows = Array.from(new Set(rows.map((r) => r.state))).filter(Boolean);
-    if (statesInRows.length > 0 && statesInRows.length < STATES.length) {
-      return STATES.filter((s) => statesInRows.includes(s));
-    }
-    return STATES;
-  }, [rows]);
+    return resolveActiveStates(selectedState, selectedOfficer);
+  }, [selectedState, selectedOfficer]);
 
   // 1. Projects Breakdown by Project and State
   const projectKeys = Object.keys(PROJECT_LABELS);

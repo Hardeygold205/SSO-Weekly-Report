@@ -17,19 +17,23 @@ import { STATES } from '../../constants/index.ts';
 import { formatNumber, formatPercent, formatDateString } from '../../utils/formatters.ts';
 import { Users, Store, Building2, TrendingUp } from 'lucide-react';
 
+import { getTargetValue, resolveActiveStates } from '../../utils/cleaner.ts';
+
 interface PipelineTabProps {
   rows: CleanedReportRow[];
+  selectedState?: string;
+  selectedOfficer?: string;
 }
 
-export const PipelineTab: React.FC<PipelineTabProps> = ({ rows }) => {
-  // Determine active states matching the active filter selection
+export const PipelineTab: React.FC<PipelineTabProps> = ({
+  rows,
+  selectedState = 'all',
+  selectedOfficer = 'all',
+}) => {
+  // Determine active states strictly matching the active filter selection
   const activeStates = useMemo(() => {
-    const statesInRows = Array.from(new Set(rows.map((r) => r.state))).filter(Boolean);
-    if (statesInRows.length > 0 && statesInRows.length < STATES.length) {
-      return STATES.filter((s) => statesInRows.includes(s));
-    }
-    return STATES;
-  }, [rows]);
+    return resolveActiveStates(selectedState, selectedOfficer);
+  }, [selectedState, selectedOfficer]);
 
   // 1. Aggregation by State
   const pipelineByState = activeStates.map((state) => {
