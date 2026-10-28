@@ -1,11 +1,7 @@
-import React from 'react';
-import {
-  RefreshCw,
-  AlertTriangle,
-  Info,
-  CheckCircle2,
-} from 'lucide-react';
-import { formatDateTime } from '../utils/formatters.ts';
+import React from "react";
+import { RefreshCw, AlertTriangle, Info, CheckCircle2 } from "lucide-react";
+import { formatDateTime } from "../utils/formatters.ts";
+import { Logo } from "./Logo.tsx";
 
 interface HeaderProps {
   dataUpdatedTime?: string;
@@ -36,11 +32,12 @@ export const Header: React.FC<HeaderProps> = ({
       {isSampleMode && (
         <div className="bg-amber-500 text-slate-900 font-bold px-4 py-1.5 text-center text-xs tracking-wider uppercase flex items-center justify-center gap-2 print:hidden">
           <Info className="w-4 h-4" />
-          <span>SAMPLE DATA ACTIVE — DISPLAYING DEMONSTRATION METRICS & TARGETS</span>
+          <span>
+            SAMPLE DATA ACTIVE — DISPLAYING DEMONSTRATION METRICS & TARGETS
+          </span>
           <button
             onClick={onExitSample}
-            className="ml-3 px-2 py-0.5 bg-black/20 hover:bg-black/30 text-slate-900 rounded text-[11px] font-semibold transition-colors"
-          >
+            className="ml-3 px-2 py-0.5 bg-black/20 hover:bg-black/30 text-slate-900 rounded text-[11px] font-semibold transition-colors">
             Switch to Live Data
           </button>
         </div>
@@ -49,16 +46,19 @@ export const Header: React.FC<HeaderProps> = ({
       {/* Main Top Bar */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between py-3 gap-3">
-          {/* Brand & Title */}
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center text-amber-300 font-black text-lg tracking-tighter shrink-0 border border-white/20">
-              EA
+          <div className="flex items-center gap-3.5">
+            <div className="shrink-0">
+              <Logo className="w-10 h-10 sm:w-12 sm:h-12 drop-shadow-sm" />
             </div>
-            <div>
+
+            <div className="flex flex-col justify-center">
               <div className="flex items-center gap-2">
-                <span className="text-xs uppercase tracking-widest text-emerald-200 font-semibold">Extension Africa</span>
+                <span className="text-[11px] sm:text-xs font-black uppercase tracking-widest text-white">
+                  Extension Africa
+                </span>
               </div>
-              <h1 className="text-lg sm:text-xl font-bold tracking-tight text-white flex items-center gap-2">
+
+              <h1 className="text-lg sm:text-2xl font-black tracking-tight text-white leading-tight">
                 SSO Weekly Performance Tracker
               </h1>
             </div>
@@ -71,25 +71,31 @@ export const Header: React.FC<HeaderProps> = ({
               <span
                 className={`w-2.5 h-2.5 rounded-full ${
                   isSampleMode
-                    ? 'bg-amber-400'
+                    ? "bg-amber-400"
                     : isLiveConnected
-                    ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]'
-                    : 'bg-rose-400 shadow-[0_0_8px_rgba(248,113,113,0.8)]'
+                      ? "bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]"
+                      : "bg-rose-400 shadow-[0_0_8px_rgba(248,113,113,0.8)]"
                 }`}
                 title={
                   isSampleMode
-                    ? 'Sample Data Mode'
+                    ? "Sample Data Mode"
                     : isLiveConnected
-                    ? 'Live Sync Operational'
-                    : 'Sync Disconnected'
+                      ? "Live Sync Operational"
+                      : "Sync Disconnected"
                 }
               />
               <div className="leading-tight">
                 <div className="font-semibold flex items-center gap-1">
-                  {isSampleMode ? 'Sample Mode' : isLiveConnected ? 'Live Synced' : 'Sync Error'}
+                  {isSampleMode
+                    ? "Sample Mode"
+                    : isLiveConnected
+                      ? "Live Synced"
+                      : "Sync Error"}
                 </div>
                 <div className="text-[10px] text-emerald-200/90 font-mono">
-                  {dataUpdatedTime ? `Data: ${formatDateTime(dataUpdatedTime)}` : 'Waiting for sync'}
+                  {dataUpdatedTime
+                    ? `Data: ${formatDateTime(dataUpdatedTime)}`
+                    : "Waiting for sync"}
                 </div>
               </div>
             </div>
@@ -99,9 +105,10 @@ export const Header: React.FC<HeaderProps> = ({
               onClick={onRefreshNow}
               disabled={isRefreshing}
               className="px-3 py-1.5 bg-white/10 hover:bg-white/20 disabled:opacity-50 rounded-lg font-medium text-white transition-colors flex items-center gap-1.5 border border-white/10 cursor-pointer"
-              title="Fetch latest submissions now (&refresh=1)"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
+              title="Fetch latest submissions now (&refresh=1)">
+              <RefreshCw
+                className={`w-3.5 h-3.5 ${isRefreshing ? "animate-spin" : ""}`}
+              />
               <span className="hidden sm:inline">Refresh</span>
             </button>
           </div>
@@ -117,16 +124,26 @@ export const Header: React.FC<HeaderProps> = ({
           <div className="flex items-center gap-2">
             <AlertTriangle className="w-4 h-4 text-amber-300 shrink-0" />
             <span>
-              {refreshError?.includes('DASHBOARD_PASSCODE') ? (
+              {refreshError?.includes("DASHBOARD_PASSCODE") ? (
                 <>
-                  <strong className="text-amber-200">Google Apps Script Configuration:</strong> The remote script returned{' '}
+                  <strong className="text-amber-200">
+                    Google Apps Script Configuration:
+                  </strong>{" "}
+                  The remote script returned{" "}
                   <code className="bg-amber-950 px-1 py-0.5 rounded text-amber-300 font-mono">
                     Missing Script Property: DASHBOARD_PASSCODE
                   </code>
-                  . In your Google Apps Script project, open <strong>Project Settings (⚙️)</strong> →{' '}
-                  <strong>Script Properties</strong> → add Property{' '}
-                  <code className="bg-amber-950 px-1 py-0.5 rounded text-amber-300 font-mono">DASHBOARD_PASSCODE</code>{' '}
-                  with value <code className="bg-amber-950 px-1 py-0.5 rounded text-amber-300 font-mono">EXAF001</code>.
+                  . In your Google Apps Script project, open{" "}
+                  <strong>Project Settings (⚙️)</strong> →{" "}
+                  <strong>Script Properties</strong> → add Property{" "}
+                  <code className="bg-amber-950 px-1 py-0.5 rounded text-amber-300 font-mono">
+                    DASHBOARD_PASSCODE
+                  </code>{" "}
+                  with value{" "}
+                  <code className="bg-amber-950 px-1 py-0.5 rounded text-amber-300 font-mono">
+                    EXAF001
+                  </code>
+                  .
                 </>
               ) : refreshError ? (
                 `Sync Alert: ${refreshError}. Displaying last known valid data.`

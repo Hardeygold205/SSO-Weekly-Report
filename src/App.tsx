@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import {
   BarChart3,
   Target,
@@ -9,7 +9,7 @@ import {
   Layers,
   ShieldCheck,
   RotateCcw,
-} from 'lucide-react';
+} from "lucide-react";
 import {
   RawKoboRow,
   CleanedReportRow,
@@ -17,49 +17,49 @@ import {
   GlobalFilterState,
   ApiResponse,
   DataQualityReport,
-} from './types/index.ts';
-import { DEFAULT_TARGETS } from './constants/index.ts';
-import { cleanKoboRows, auditTargets } from './utils/cleaner.ts';
-import { formatDateTime } from './utils/formatters.ts';
-import { SAMPLE_KOBO_ROWS, SAMPLE_TARGETS } from './services/sampleData.ts';
+} from "./types/index.ts";
+import { DEFAULT_TARGETS } from "./constants/index.ts";
+import { cleanKoboRows, auditTargets } from "./utils/cleaner.ts";
+import { formatDateTime } from "./utils/formatters.ts";
+import { SAMPLE_KOBO_ROWS, SAMPLE_TARGETS } from "./services/sampleData.ts";
 
 // Components
-import { Header } from './components/Header.tsx';
-import { FilterBar } from './components/FilterBar.tsx';
+import { Header } from "./components/Header.tsx";
+import { FilterBar } from "./components/FilterBar.tsx";
 
 // Tabs
-import { OverviewTab } from './components/tabs/OverviewTab.tsx';
-import { ProgressTab } from './components/tabs/ProgressTab.tsx';
-import { PipelineTab } from './components/tabs/PipelineTab.tsx';
-import { HubsTrainingTab } from './components/tabs/HubsTrainingTab.tsx';
-import { RevenueTab } from './components/tabs/RevenueTab.tsx';
-import { DisciplineTab } from './components/tabs/DisciplineTab.tsx';
-import { ProjectsChallengesTab } from './components/tabs/ProjectsChallengesTab.tsx';
-import { DataQualityTab } from './components/tabs/DataQualityTab.tsx';
+import { OverviewTab } from "./components/tabs/OverviewTab.tsx";
+import { ProgressTab } from "./components/tabs/ProgressTab.tsx";
+import { PipelineTab } from "./components/tabs/PipelineTab.tsx";
+import { HubsTrainingTab } from "./components/tabs/HubsTrainingTab.tsx";
+import { RevenueTab } from "./components/tabs/RevenueTab.tsx";
+import { DisciplineTab } from "./components/tabs/DisciplineTab.tsx";
+import { ProjectsChallengesTab } from "./components/tabs/ProjectsChallengesTab.tsx";
+import { DataQualityTab } from "./components/tabs/DataQualityTab.tsx";
 
 // ============================================================================
 // APPS SCRIPT WEB APP DATA SOURCE (DIRECT BROWSER FETCH)
 // ============================================================================
 export const APPS_SCRIPT_URL =
-  'https://script.google.com/macros/s/AKfycbzypVMhN2uEtnXqR-Gjs0WrvYht6Xwr4y3RDaTUkDOO7n_UMwZsz44Q9WiZ14kCGQZG/exec';
+  "https://script.google.com/macros/s/AKfycbzypVMhN2uEtnXqR-Gjs0WrvYht6Xwr4y3RDaTUkDOO7n_UMwZsz44Q9WiZ14kCGQZG/exec";
 
 // ============================================================================
 // ACCESS KEY (AUTOMATICALLY SENT WITH EVERY DATA REQUEST)
 // ============================================================================
-export const ACCESS_KEY = 'EXAF001';
+export const ACCESS_KEY = "EXAF001";
 
 const TABS = [
-  { id: 'overview', label: 'Overview', icon: BarChart3 },
-  { id: 'progress', label: 'Progress vs Targets', icon: Target },
-  { id: 'pipeline', label: 'Activity Pipeline', icon: GitFork },
-  { id: 'hubs', label: 'Hubs & Training', icon: Building },
-  { id: 'revenue', label: 'Revenue', icon: TrendingUp },
-  { id: 'discipline', label: 'Reporting Discipline', icon: Clock },
-  { id: 'projects', label: 'Projects & Challenges', icon: Layers },
-  { id: 'quality', label: 'Data Quality', icon: ShieldCheck },
+  { id: "overview", label: "Overview", icon: BarChart3 },
+  { id: "progress", label: "Progress vs Targets", icon: Target },
+  { id: "pipeline", label: "Activity Pipeline", icon: GitFork },
+  { id: "hubs", label: "Hubs & Training", icon: Building },
+  { id: "revenue", label: "Revenue", icon: TrendingUp },
+  { id: "discipline", label: "Reporting Discipline", icon: Clock },
+  { id: "projects", label: "Projects & Challenges", icon: Layers },
+  { id: "quality", label: "Data Quality", icon: ShieldCheck },
 ] as const;
 
-type TabId = typeof TABS[number]['id'];
+type TabId = (typeof TABS)[number]["id"];
 
 export default function App() {
   const [isSampleMode, setIsSampleMode] = useState<boolean>(false);
@@ -70,34 +70,43 @@ export default function App() {
   const [rawRows, setRawRows] = useState<RawKoboRow[]>([]);
   const [cleanedRows, setCleanedRows] = useState<CleanedReportRow[]>([]);
   const [targets, setTargets] = useState<TargetItem[]>(DEFAULT_TARGETS);
-  const [isUsingDefaultTargets, setIsUsingDefaultTargets] = useState<boolean>(true);
+  const [isUsingDefaultTargets, setIsUsingDefaultTargets] =
+    useState<boolean>(true);
 
   // Status & Metadata
-  const [dataUpdatedTime, setDataUpdatedTime] = useState<string>('');
-  const [targetsUpdatedTime, setTargetsUpdatedTime] = useState<string>('');
-  const [lastSuccessfulLoadTime, setLastSuccessfulLoadTime] = useState<string>('');
+  const [dataUpdatedTime, setDataUpdatedTime] = useState<string>("");
+  const [targetsUpdatedTime, setTargetsUpdatedTime] = useState<string>("");
+  const [lastSuccessfulLoadTime, setLastSuccessfulLoadTime] =
+    useState<string>("");
   const [isLiveConnected, setIsLiveConnected] = useState<boolean>(false);
   const [refreshError, setRefreshError] = useState<string | null>(null);
   const [targetsWarning, setTargetsWarning] = useState<string | null>(null);
-  const [qualityReport, setQualityReport] = useState<DataQualityReport | null>(null);
+  const [qualityReport, setQualityReport] = useState<DataQualityReport | null>(
+    null,
+  );
 
   // Navigation
-  const [activeTab, setActiveTab] = useState<TabId>('overview');
+  const [activeTab, setActiveTab] = useState<TabId>("overview");
 
   // Global Filters
   const [filters, setFilters] = useState<GlobalFilterState>({
-    month: 'all',
-    week: 'all',
-    state: 'all',
-    officer: 'all',
+    month: "all",
+    week: "all",
+    state: "all",
+    officer: "all",
     showTargets: true,
   });
 
   // Reusable data processing function
   const processData = useCallback(
-    (newRawRows: RawKoboRow[], newTargets?: TargetItem[], targetsErrorMsg?: string) => {
+    (
+      newRawRows: RawKoboRow[],
+      newTargets?: TargetItem[],
+      targetsErrorMsg?: string,
+    ) => {
       setRawRows(newRawRows);
-      const { cleanedRows: cleaned, qualityReport: qr } = cleanKoboRows(newRawRows);
+      const { cleanedRows: cleaned, qualityReport: qr } =
+        cleanKoboRows(newRawRows);
       setCleanedRows(cleaned);
 
       let activeTargets = targets;
@@ -109,7 +118,9 @@ export default function App() {
         setTargets(newTargets);
         setIsUsingDefaultTargets(false);
       } else if (targetsErrorMsg) {
-        setTargetsWarning(`Targets sync issue: ${targetsErrorMsg}. Using default targets.`);
+        setTargetsWarning(
+          `Targets sync issue: ${targetsErrorMsg}. Using default targets.`,
+        );
       }
 
       const targetAudit = auditTargets(activeTargets);
@@ -121,7 +132,7 @@ export default function App() {
 
       setQualityReport(qr);
     },
-    [targets, isUsingDefaultTargets]
+    [targets, isUsingDefaultTargets],
   );
 
   // Direct fetch from browser to Apps Script Web App sending ACCESS_KEY automatically
@@ -137,10 +148,10 @@ export default function App() {
       }
 
       try {
-        const targetUrl = `${cleanUrl}?key=${encodeURIComponent(cleanKey)}${isManualRefresh ? '&refresh=1' : ''}`;
+        const targetUrl = `${cleanUrl}?key=${encodeURIComponent(cleanKey)}${isManualRefresh ? "&refresh=1" : ""}`;
         const res = await fetch(targetUrl, {
-          method: 'GET',
-          redirect: 'follow',
+          method: "GET",
+          redirect: "follow",
         });
 
         const rawText = await res.text();
@@ -150,7 +161,7 @@ export default function App() {
           data = JSON.parse(rawText);
         } catch {
           // If response is not valid JSON, show clear message with HTTP status, first 80 chars, and required hint
-          const snippet = rawText.slice(0, 80).replace(/\s+/g, ' ');
+          const snippet = rawText.slice(0, 80).replace(/\s+/g, " ");
           const detailedError = `HTTP ${res.status}: "${snippet}...". The data link returned a web page instead of data. Check that the Apps Script web app is deployed as 'Anyone' and that the URL ends in /exec.`;
           setRefreshError(detailedError);
           setIsLiveConnected(false);
@@ -163,10 +174,11 @@ export default function App() {
         }
 
         if (!data.ok) {
-          let errText = data.error || 'Failed to fetch data';
+          let errText = data.error || "Failed to fetch data";
           // If the data request returns "Wrong passcode", show required clear message
-          if (errText.toLowerCase().includes('wrong passcode')) {
-            errText = 'The dashboard access key is out of date. Contact the administrator.';
+          if (errText.toLowerCase().includes("wrong passcode")) {
+            errText =
+              "The dashboard access key is out of date. Contact the administrator.";
           }
           setRefreshError(errText);
           setIsLiveConnected(false);
@@ -192,7 +204,10 @@ export default function App() {
 
         processData(data.rows || [], data.targets, data.targetsError);
       } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : 'Network error connecting to data source';
+        const msg =
+          err instanceof Error
+            ? err.message
+            : "Network error connecting to data source";
         setRefreshError(msg);
         setIsLiveConnected(false);
 
@@ -205,7 +220,7 @@ export default function App() {
         setIsRefreshing(false);
       }
     },
-    [cleanedRows.length, processData]
+    [cleanedRows.length, processData],
   );
 
   // On mount, immediately fetch straight to data with no login
@@ -217,9 +232,12 @@ export default function App() {
   useEffect(() => {
     if (isSampleMode) return;
 
-    const intervalId = setInterval(() => {
-      fetchDirectFromAppsScript(false);
-    }, 5 * 60 * 1000); // 5 minutes
+    const intervalId = setInterval(
+      () => {
+        fetchDirectFromAppsScript(false);
+      },
+      5 * 60 * 1000,
+    ); // 5 minutes
 
     return () => clearInterval(intervalId);
   }, [isSampleMode, fetchDirectFromAppsScript]);
@@ -246,22 +264,30 @@ export default function App() {
 
   // Available Filter Options (Distinct months and weeks)
   const availableMonths = useMemo(() => {
-    const months = Array.from(new Set(cleanedRows.map((r) => r.month))).filter(Boolean);
+    const months = Array.from(new Set(cleanedRows.map((r) => r.month))).filter(
+      Boolean,
+    );
     return months.sort();
   }, [cleanedRows]);
 
   const availableWeeks = useMemo(() => {
-    const weeks = Array.from(new Set(cleanedRows.map((r) => r.week_start))).filter(Boolean);
+    const weeks = Array.from(
+      new Set(cleanedRows.map((r) => r.week_start)),
+    ).filter(Boolean);
     return weeks.sort();
   }, [cleanedRows]);
 
   // Filter application
   const filteredRows = useMemo(() => {
     return cleanedRows.filter((r) => {
-      if (filters.month !== 'all' && r.month !== filters.month) return false;
-      if (filters.week !== 'all' && r.week_start !== filters.week) return false;
-      if (filters.state !== 'all' && r.state.toLowerCase() !== filters.state.toLowerCase()) return false;
-      if (filters.officer !== 'all') {
+      if (filters.month !== "all" && r.month !== filters.month) return false;
+      if (filters.week !== "all" && r.week_start !== filters.week) return false;
+      if (
+        filters.state !== "all" &&
+        r.state.toLowerCase() !== filters.state.toLowerCase()
+      )
+        return false;
+      if (filters.officer !== "all") {
         const officerLower = filters.officer.toLowerCase();
         const matchName = r.sso_name.toLowerCase() === officerLower;
         const matchCode = r.sso_code.toLowerCase() === officerLower;
@@ -278,10 +304,10 @@ export default function App() {
   const handleResetFilters = () => {
     setFilters((prev) => ({
       ...prev,
-      month: 'all',
-      week: 'all',
-      state: 'all',
-      officer: 'all',
+      month: "all",
+      week: "all",
+      state: "all",
+      officer: "all",
     }));
   };
 
@@ -290,7 +316,7 @@ export default function App() {
     try {
       return new URL(APPS_SCRIPT_URL.trim()).host;
     } catch {
-      return 'script.google.com';
+      return "script.google.com";
     }
   }, []);
 
@@ -334,11 +360,12 @@ export default function App() {
                   onClick={() => setActiveTab(tab.id)}
                   className={`flex items-center gap-2 px-3.5 py-2.5 text-xs sm:text-sm font-semibold border-b-2 transition-colors whitespace-nowrap ${
                     isActive
-                      ? 'border-[#1F6B3A] text-[#1F6B3A] bg-white rounded-t-lg'
-                      : 'border-transparent text-slate-600 hover:text-slate-900 hover:border-slate-300'
-                  }`}
-                >
-                  <Icon className={`w-4 h-4 ${isActive ? 'text-[#1F6B3A]' : 'text-slate-400'}`} />
+                      ? "border-[#1F6B3A] text-[#1F6B3A] bg-white rounded-t-lg"
+                      : "border-transparent text-slate-600 hover:text-slate-900 hover:border-slate-300"
+                  }`}>
+                  <Icon
+                    className={`w-4 h-4 ${isActive ? "text-[#1F6B3A]" : "text-slate-400"}`}
+                  />
                   <span>{tab.label}</span>
                 </button>
               );
@@ -350,30 +377,36 @@ export default function App() {
         {isLoading && cleanedRows.length === 0 ? (
           <div className="bg-white rounded-xl border border-slate-200 p-12 text-center shadow-xs">
             <div className="w-12 h-12 border-3 border-[#1F6B3A]/20 border-t-[#1F6B3A] rounded-full animate-spin mx-auto mb-4" />
-            <h3 className="text-base font-bold text-slate-900">Connecting to SSO Performance Tracker...</h3>
-            <p className="text-xs text-slate-500 mt-1">Fetching weekly Kobo submissions and targets from Google Apps Script</p>
+            <h3 className="text-base font-bold text-slate-900">
+              Connecting to SSO Performance Tracker...
+            </h3>
+            <p className="text-xs text-slate-500 mt-1">
+              Fetching weekly Kobo submissions and targets from Google Apps
+              Script
+            </p>
           </div>
         ) : cleanedRows.length === 0 ? (
           <div className="bg-white rounded-xl border border-slate-200 p-12 text-center shadow-xs">
             <div className="w-16 h-16 rounded-full bg-emerald-50 text-[#1F6B3A] mx-auto flex items-center justify-center mb-4">
               <RotateCcw className="w-8 h-8" />
             </div>
-            <h3 className="text-lg font-bold text-slate-900">No Weekly Submissions Recorded</h3>
+            <h3 className="text-lg font-bold text-slate-900">
+              No Weekly Submissions Recorded
+            </h3>
             <p className="text-sm text-slate-500 max-w-md mx-auto mt-2">
-              There is currently no submission data available from the connected endpoint. You can refresh live data
-              or load demonstration sample data.
+              There is currently no submission data available from the connected
+              endpoint. You can refresh live data or load demonstration sample
+              data.
             </p>
             <div className="mt-6 flex flex-wrap justify-center gap-3">
               <button
                 onClick={() => fetchDirectFromAppsScript(true)}
-                className="px-4 py-2 bg-[#1F6B3A] text-white text-xs font-semibold rounded-lg hover:bg-[#18532D] transition-colors cursor-pointer"
-              >
+                className="px-4 py-2 bg-[#1F6B3A] text-white text-xs font-semibold rounded-lg hover:bg-[#18532D] transition-colors cursor-pointer">
                 Refresh Now
               </button>
               <button
                 onClick={handleLoadSample}
-                className="px-4 py-2 bg-amber-500 text-slate-900 text-xs font-bold rounded-lg hover:bg-amber-400 transition-colors cursor-pointer"
-              >
+                className="px-4 py-2 bg-amber-500 text-slate-900 text-xs font-bold rounded-lg hover:bg-amber-400 transition-colors cursor-pointer">
                 Load Demonstration Data
               </button>
             </div>
@@ -381,7 +414,7 @@ export default function App() {
         ) : (
           <div>
             {/* Active Tab View */}
-            {activeTab === 'overview' && (
+            {activeTab === "overview" && (
               <OverviewTab
                 rows={filteredRows}
                 targets={targets}
@@ -392,7 +425,7 @@ export default function App() {
               />
             )}
 
-            {activeTab === 'progress' && (
+            {activeTab === "progress" && (
               <ProgressTab
                 rows={filteredRows}
                 targets={targets}
@@ -402,7 +435,7 @@ export default function App() {
               />
             )}
 
-            {activeTab === 'pipeline' && (
+            {activeTab === "pipeline" && (
               <PipelineTab
                 rows={filteredRows}
                 selectedState={filters.state}
@@ -410,7 +443,7 @@ export default function App() {
               />
             )}
 
-            {activeTab === 'hubs' && (
+            {activeTab === "hubs" && (
               <HubsTrainingTab
                 rows={filteredRows}
                 targets={targets}
@@ -419,7 +452,7 @@ export default function App() {
               />
             )}
 
-            {activeTab === 'revenue' && (
+            {activeTab === "revenue" && (
               <RevenueTab
                 rows={filteredRows}
                 targets={targets}
@@ -428,7 +461,7 @@ export default function App() {
               />
             )}
 
-            {activeTab === 'discipline' && (
+            {activeTab === "discipline" && (
               <DisciplineTab
                 rows={filteredRows}
                 selectedState={filters.state}
@@ -437,7 +470,7 @@ export default function App() {
               />
             )}
 
-            {activeTab === 'projects' && (
+            {activeTab === "projects" && (
               <ProjectsChallengesTab
                 rows={filteredRows}
                 selectedState={filters.state}
@@ -445,7 +478,7 @@ export default function App() {
               />
             )}
 
-            {activeTab === 'quality' && qualityReport && (
+            {activeTab === "quality" && qualityReport && (
               <DataQualityTab
                 qualityReport={qualityReport}
                 targets={targets}
@@ -456,26 +489,17 @@ export default function App() {
         )}
       </main>
 
-      {/* 4. Footer with Connection Details */}
-      <footer className="mt-auto border-t border-slate-200 bg-white py-4 text-xs text-slate-500 print:hidden">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="font-bold text-slate-700">Extension Africa</span>
-            <span>·</span>
-            <span>SSO Weekly Performance Tracker</span>
-          </div>
-
-          {/* Connection details line */}
-          <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-500 font-mono">
-            <span>Connection details:</span>
-            <span className="font-semibold text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded">{appsScriptHost}</span>
-            <span>·</span>
-            <span>
-              Last successful load:{' '}
-              <strong className="text-slate-700">
-                {lastSuccessfulLoadTime ? formatDateTime(lastSuccessfulLoadTime) : 'Not loaded yet'}
-              </strong>
-            </span>
+      <footer className="mt-12 bg-white border-t border-[#CBD5E1] py-8 text-xs text-[#475569]">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col md:flex-row md:items-center text-center justify-center md:justify-between gap-4">
+            <div className="items-center gap-3 order-2 md:order-1">
+              <div className="text-[11px] font-bold text-sm text-black">
+                &copy; 2026 Extension Africa. All right reseerved.
+              </div>
+            </div>
+            <div className="text-[11px] text-[#206542] font-bold order-1 md:order-2">
+              SSO Weekly Performance Tracker
+            </div>
           </div>
         </div>
       </footer>
